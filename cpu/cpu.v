@@ -1,6 +1,7 @@
 module cpu (
     input clk,
-    input reset
+    input reset,
+    output illegal
 );
 
 wire [31:0] instr;
@@ -90,7 +91,8 @@ control control_inst (
     .alu_control(alu_control),
     .mem_to_reg(mem_to_reg),
     .mem_write(mem_write),
-    .branch(branch)
+    .branch(branch),
+    .illegal(illegal)
 );
 
 dmem dmem_inst (

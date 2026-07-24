@@ -8,7 +8,8 @@ module control (
     output reg [3:0] alu_control,
     output reg mem_to_reg,
     output reg mem_write,
-    output reg branch
+    output reg branch,
+    output reg illegal
 );
 
 always @(*) begin
@@ -18,6 +19,7 @@ always @(*) begin
     mem_to_reg = 1'b0;
     mem_write = 1'b0;
     branch = 1'b0;
+    illegal = 1'b0;
 
    case (opcode)
         7'b0110011 : begin
@@ -75,6 +77,8 @@ always @(*) begin
             alu_control = 4'b0001;
             branch = 1'b1;
         end
+
+        default : illegal = 1'b1;
 
    endcase
 

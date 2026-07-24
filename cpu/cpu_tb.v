@@ -1,10 +1,12 @@
 module cpu_tb;
     reg clk;
     reg reset;
+    wire illegal;
 
     cpu dut (
         .clk(clk),
-        .reset(reset)
+        .reset(reset),
+        .illegal(illegal)
     );
 
     initial clk = 0;
@@ -73,7 +75,10 @@ module cpu_tb;
         dut.fetch_inst.imem_inst.mem[13] = 32'hFFF48493;  
         dut.fetch_inst.imem_inst.mem[14] = 32'h00B48463;  
         dut.fetch_inst.imem_inst.mem[15] = 32'hFE000AE3;  
-        dut.fetch_inst.imem_inst.mem[16] = 32'h06300613;  
+        dut.fetch_inst.imem_inst.mem[16] = 32'h06300613; 
+        dut.fetch_inst.imem_inst.mem[17] = 32'h000000FF;
+        dut.fetch_inst.imem_inst.mem[18] = 32'h00000063;
+
 
         @(posedge clk);
         #1 reset = 0;
@@ -94,6 +99,12 @@ module cpu_tb;
         check(dut.regfile_inst.registers[10], 32'd30, "x10 expected 30");
         check(dut.regfile_inst.registers[11], 32'd0, "x11 expected 0");
         check(dut.regfile_inst.registers[12], 32'd99, "x12 expected 99");
+        check(dut.fetch_inst.pc_inst.pc, 32'd72, "PC parked at spin loop");
+        
+        
+
+
+        
 
     
         $display("PC = %0d", dut.fetch_inst.pc_inst.pc);
