@@ -15,6 +15,14 @@ module cpu_tb;
     integer errors = 0;
     integer tests = 0;
 
+    integer illegal_count;
+    initial illegal_count = 0;
+
+    always @(posedge clk) begin
+        if (illegal === 1'b1)
+            illegal_count = illegal_count + 1;
+    end
+
     task check(input [31:0] actual, input [31:0] expected, input [127:0] name);
     begin
         #1;
@@ -25,9 +33,6 @@ module cpu_tb;
         end
     end
     endtask
-
-
-
 
     // instr 1 = 32'h00A00093;   addi x1, x0, 10
     // instr 2 = 32'h01400113;   addi x2, x0, 20
@@ -100,11 +105,8 @@ module cpu_tb;
         check(dut.regfile_inst.registers[11], 32'd0, "x11 expected 0");
         check(dut.regfile_inst.registers[12], 32'd99, "x12 expected 99");
         check(dut.fetch_inst.pc_inst.pc, 32'd72, "PC parked at spin loop");
-        
-        
+        check(illegal_count, 1'b1, "illegal counter expected 1");
 
-
-        
 
     
         $display("PC = %0d", dut.fetch_inst.pc_inst.pc);
@@ -112,6 +114,7 @@ module cpu_tb;
         if (errors == 0) $display("ALL %0d TESTS PASSED", tests);
         else begin
             $display("%0d/%0d TESTS FAILED", errors, tests);
+
             $fatal(1);
         end
         $finish;
