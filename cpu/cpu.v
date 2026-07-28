@@ -85,7 +85,7 @@ imm_gen imm_gen_inst (
 control control_inst (
     .opcode(opcode),
     .funct3(funct3),
-    .funct7_5(funct7[5]),
+    .funct7(funct7),
     .reg_write(reg_write),
     .alu_src(alu_src),
     .alu_control(alu_control),
