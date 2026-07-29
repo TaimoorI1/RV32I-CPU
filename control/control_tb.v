@@ -365,7 +365,7 @@ initial begin
 
                 #1;
 
-                sweep_exp_illegal = expected_illegal(opcode, funct7, funct3);
+                sweep_exp_illegal = expected_illegal(opcode, funct3, funct7);
 
                 tests = tests + 1;
                 if (illegal !== sweep_exp_illegal) begin
@@ -379,14 +379,14 @@ initial begin
                     opcode, funct3, funct7, reg_write, mem_write, branch);
                 end
 
-                if (reg_write && mem_write)
+                if (reg_write && mem_write) begin
                     errors = errors + 1;
                     $display("WRITE CONFLICT: reg_write and mem_write both enabled | opcode=%b funct3=%b funct7=%b", opcode, funct3, funct7);
+                end
 
             end
         end
     end
-
 
     $display("%0d/%0d passed", tests - errors, tests);
     $finish;
