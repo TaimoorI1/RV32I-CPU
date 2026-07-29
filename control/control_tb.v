@@ -12,6 +12,11 @@ wire mem_to_reg;
 wire branch;
 wire illegal;
 
+integer op_i;
+integer f3_i;
+integer f7_i;
+reg sweep_exp_illegal;
+
 
 integer errors;
 integer tests;
@@ -28,6 +33,7 @@ control dut (
     .branch(branch),
     .illegal(illegal)
 );
+
 
 task check;
     input [3:0] exp_alu_control;
@@ -74,6 +80,73 @@ task check;
         end
     end
 endtask
+
+function expected_illegal;
+    input [6:0] op;
+    input [2:0] f3; 
+    input [6:0] f7;
+
+    begin
+        expected_illegal = 1'b1;
+
+        case (op)
+            7'b0110011 : begin
+                case (f7)
+                    7'b0000000 : expected_illegal = 1'b0;
+
+                    7'b0100000 : begin
+                        case (f3)
+                            3'b000 : expected_illegal = 1'b0;
+                            3'b101 : expected_illegal = 1'b0;
+                        endcase
+                    end
+                endcase
+            end
+
+            7'b0010011 : begin
+                case (f3)
+                    3'b000 : expected_illegal = 1'b0;
+                    3'b010 : expected_illegal = 1'b0;
+                    3'b011 : expected_illegal = 1'b0;
+                    3'b100 : expected_illegal = 1'b0;
+                    3'b110 : expected_illegal = 1'b0;
+                    3'b111 : expected_illegal = 1'b0;
+
+                    3'b001 : begin
+                        if (f7 == 7'b0000000)
+                            expected_illegal = 1'b0;
+                    end
+
+                    3'b101 : begin
+                        if ((f7 == 7'b0000000) ||
+                            (f7 == 7'b0100000))
+                            expected_illegal = 1'b0;
+                    end
+                endcase
+            end
+
+            7'b0000011 : begin
+                if (f3 == 3'b010) 
+                    expected_illegal = 1'b0;
+            end
+
+            7'b0100011 : begin 
+                if (f3 == 3'b010) 
+                    expected_illegal = 1'b0;
+            end
+
+            7'b1100011 : begin
+                if (f3 == 3'b000) 
+                    expected_illegal = 1'b0;
+            end
+
+        endcase
+    end
+endfunction
+
+
+
+
 
 initial begin
     errors = 0;
@@ -281,6 +354,38 @@ initial begin
     funct7 = 7'b0000000;
     #1;
     check(4'b0000, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1);
+
+    for (op_i = 0; op_i < 128; op_i = op_i + 1) begin
+        for (f3_i = 0; f3_i < 8; f3_i = f3_i + 1) begin
+            for (f7_i = 0; f7_i < 128; f7_i = f7_i + 1) begin
+
+                opcode = op_i;
+                funct3 = f3_i;
+                funct7 = f7_i;
+
+                #1;
+
+                sweep_exp_illegal = expected_illegal(opcode, funct7, funct3);
+
+                tests = tests + 1;
+                if (illegal !== sweep_exp_illegal) begin
+                    errors = errors + 1;
+                    $display("SWEEP FAIL: opcode:%b | funct3:%b | funct7:%b | actual:%b | expected:%b", opcode, funct3, funct7, illegal, sweep_exp_illegal);
+                end
+                
+                if (sweep_exp_illegal && (reg_write || mem_write || branch)) begin  
+                    errors = errors + 1;
+                    $display("UNSAFE ILLEGAL: opcode=%b funct3=%b funct7=%b | rw=%b mw=%b br=%b",
+                    opcode, funct3, funct7, reg_write, mem_write, branch);
+                end
+
+                if (reg_write && mem_write)
+                    errors = errors + 1;
+                    $display("WRITE CONFLICT: reg_write and mem_write both enabled | opcode=%b funct3=%b funct7=%b", opcode, funct3, funct7);
+
+            end
+        end
+    end
 
 
     $display("%0d/%0d passed", tests - errors, tests);
