@@ -6,19 +6,24 @@ module control (
     output reg reg_write,
     output reg alu_src,
     output reg [3:0] alu_control,
-    output reg mem_to_reg,
+    output reg [1:0] wb_select,
     output reg mem_write,
     output reg branch,
+    output reg jump,
+    output reg jump_reg,
     output reg illegal
+
 );
 
 always @(*) begin
     reg_write = 1'b0;
     alu_src = 1'b0;
     alu_control = 4'b0000;
-    mem_to_reg = 1'b0;
+    wb_select = 2'b00;
     mem_write = 1'b0;
     branch = 1'b0;
+    jump = 1'b0;
+    jump_reg = 1'b0;
     illegal = 1'b0;
 
    case (opcode)
@@ -104,7 +109,7 @@ always @(*) begin
                     reg_write = 1'b1;
                     alu_src = 1'b1;
                     mem_write = 1'b0;
-                    mem_to_reg = 1'b1;
+                    wb_select = 2'b01;
                     alu_control = 4'b0000;
                 end
 
@@ -119,7 +124,7 @@ always @(*) begin
                     reg_write = 1'b0;
                     alu_src = 1'b1;
                     mem_write = 1'b1;
-                    mem_to_reg = 1'b0;
+                    wb_select = 2'b00;
                     alu_control = 4'b0000;
                 end
 
@@ -134,13 +139,38 @@ always @(*) begin
                     reg_write = 1'b0;
                     alu_src = 1'b0;
                     mem_write = 1'b0;
-                    mem_to_reg = 1'b0;
+                    wb_select = 2'b00;
                     alu_control = 4'b0001;
                     branch = 1'b1;
                 end
 
                 default : illegal = 1'b1;
             endcase
+        end
+
+        7'b1101111 : begin // JAL 
+            reg_write = 1'b1;
+            mem_write = 1'b0;
+            wb_select = 2'b10;
+            branch = 1'b0;
+            jump = 1'b1;
+            jump_reg = 1'b0;
+        end
+
+        7'b1100111 : begin // JALR 
+            if (funct3 == 3'b000) begin
+                reg_write = 1'b1;
+                alu_src = 1'b1;
+                alu_control = 4'b0000;
+                mem_write = 1'b0;
+                wb_select = 2'b10;
+                branch = 1'b0;
+                jump = 1'b1;
+                jump_reg = 1'b1;
+            end
+
+            else illegal = 1'b1;
+
         end
 
         default : illegal = 1'b1;

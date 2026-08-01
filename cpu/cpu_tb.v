@@ -52,7 +52,14 @@ module cpu_tb;
     // instr 15 = 32'h00B48463   beq  x9,  x11, done     # +8
     // instr 16 = 32'hFE000AE3   beq  x0,  x0,  loop     # -12
     // done:
-    // instr 17 = 32'h06300613   addi x12, x0, 99
+    // instr 17, address 64 = 32'h06300613; addi x12, x0, 99
+    // instr 18, address 68 = 32'h00C006EF; jal  x13, +12
+    // instr 19, address 72 = 32'h06F00713; addi x14, x0, 111  // skipped
+    // instr 20, address 76 = 32'h0DE00713; addi x14, x0, 222  // skipped
+    // instr 21, address 80 = 32'h04D00793; addi x15, x0, 77   // target
+    // instr 22, address 84 = 32'h000000FF; illegal instruction
+    // instr 23, address 88 = 32'h00000063; beq x0, x0, 0     // spin
+
 
     initial begin
     #100000;
@@ -80,15 +87,19 @@ module cpu_tb;
         dut.fetch_inst.imem_inst.mem[13] = 32'hFFF48493;  
         dut.fetch_inst.imem_inst.mem[14] = 32'h00B48463;  
         dut.fetch_inst.imem_inst.mem[15] = 32'hFE000AE3;  
-        dut.fetch_inst.imem_inst.mem[16] = 32'h06300613; 
-        dut.fetch_inst.imem_inst.mem[17] = 32'h000000FF;
-        dut.fetch_inst.imem_inst.mem[18] = 32'h00000063;
+        dut.fetch_inst.imem_inst.mem[16] = 32'h06300613;
+        dut.fetch_inst.imem_inst.mem[17] = 32'h00C006EF;
+        dut.fetch_inst.imem_inst.mem[18] = 32'h06F00713;
+        dut.fetch_inst.imem_inst.mem[19] = 32'h0DE00713;
+        dut.fetch_inst.imem_inst.mem[20] = 32'h04D00793;
+        dut.fetch_inst.imem_inst.mem[21] = 32'h000000FF;
+        dut.fetch_inst.imem_inst.mem[22] = 32'h00000063;
 
 
         @(posedge clk);
         #1 reset = 0;
 
-        repeat(30)@(posedge clk);
+        repeat(35)@(posedge clk);
 
         check(dut.regfile_inst.registers[0], 32'd0, "x0 must be 0");
         check(dut.regfile_inst.registers[1], 32'd10, "addi x1, x0, 10");
@@ -104,9 +115,11 @@ module cpu_tb;
         check(dut.regfile_inst.registers[10], 32'd30, "x10 expected 30");
         check(dut.regfile_inst.registers[11], 32'd0, "x11 expected 0");
         check(dut.regfile_inst.registers[12], 32'd99, "x12 expected 99");
-        check(dut.fetch_inst.pc_inst.pc, 32'd72, "PC parked at spin loop");
-        check(illegal_count, 1'b1, "illegal counter expected 1");
-
+        check(dut.regfile_inst.registers[13], 32'd72, "JAL writes PC+4 link address to x13");
+        check(dut.regfile_inst.registers[14], 32'd0, "JAL skips wrong-path instructions");
+        check(dut.regfile_inst.registers[15], 32'd77, "JAL executes target instruction");
+        check(dut.fetch_inst.pc_inst.pc, 32'd88, "PC parked at relocated spin loop");
+        check(illegal_count, 32'd1, "illegal counter expected 1");
 
     
         $display("PC = %0d", dut.fetch_inst.pc_inst.pc);

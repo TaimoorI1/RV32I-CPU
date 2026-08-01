@@ -8,15 +8,16 @@ wire reg_write;
 wire alu_src;
 wire [3:0] alu_control;
 wire mem_write;
-wire mem_to_reg;
+wire [1:0] wb_select;
 wire branch;
+wire jump;
+wire jump_reg;
 wire illegal;
 
 integer op_i;
 integer f3_i;
 integer f7_i;
 reg sweep_exp_illegal;
-
 
 integer errors;
 integer tests;
@@ -29,8 +30,10 @@ control dut (
     .alu_src(alu_src),
     .alu_control(alu_control),
     .mem_write(mem_write),
-    .mem_to_reg(mem_to_reg),
+    .wb_select(wb_select),
     .branch(branch),
+    .jump(jump),
+    .jump_reg(jump_reg),
     .illegal(illegal)
 );
 
@@ -40,8 +43,10 @@ task check;
     input exp_alu_src;
     input exp_reg_write;
     input exp_mem_write;
-    input exp_mem_to_reg;
+    input [1:0] exp_wb_select;
     input exp_branch;
+    input exp_jump;
+    input exp_jump_reg;
     input exp_illegal;
     begin
         tests = tests + 1;
@@ -50,15 +55,17 @@ task check;
               alu_src === exp_alu_src &&
               reg_write === exp_reg_write &&
               mem_write === exp_mem_write &&
-              mem_to_reg === exp_mem_to_reg &&
+              wb_select === exp_wb_select &&
               branch === exp_branch &&
+              jump === exp_jump &&
+              jump_reg === exp_jump_reg && 
               illegal === exp_illegal
             )) begin
 
             errors = errors + 1;
 
             $display(
-                "FAIL: opcode=%b funct3=%b funct7=%b | got ctrl=%b src=%b wr=%b mw=%b m2r=%b br=%b illegal=%b | expected ctrl=%b src=%b wr=%b mw=%b m2r=%b br=%b illegal=%b",
+                "FAIL: opcode=%b funct3=%b funct7=%b | got ctrl=%b src=%b wr=%b mw=%b m2r=%b br=%b j=%b jr=%b illegal=%b | expected ctrl=%b src=%b wr=%b mw=%b m2r=%b br=%b j=%b jr=%b illegal=%b",
                 opcode,
                 funct3,
                 funct7,
@@ -66,15 +73,19 @@ task check;
                 alu_src,
                 reg_write,
                 mem_write,
-                mem_to_reg,
+                wb_select,
                 branch,
+                jump,
+                jump_reg,
                 illegal,
                 exp_alu_control,
                 exp_alu_src,
                 exp_reg_write,
                 exp_mem_write,
-                exp_mem_to_reg,
+                exp_wb_select,
                 exp_branch,
+                exp_jump,
+                exp_jump_reg,
                 exp_illegal
             );
         end
@@ -140,10 +151,17 @@ function expected_illegal;
                     expected_illegal = 1'b0;
             end
 
+            7'b1101111 : begin // JAL 
+                expected_illegal = 1'b0;
+            end 
+
+             7'b1100111 : begin // JALR
+                if (f3 == 3'b000) expected_illegal = 1'b0;
+            end 
+
         endcase
     end
 endfunction
-
 
 
 
@@ -157,203 +175,226 @@ initial begin
     funct3 = 3'b000;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0000, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
+
 
     // SUB
     opcode = 7'b0110011;
     funct3 = 3'b000;
     funct7 = 7'b0100000;
     #1;
-    check(4'b0001, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0001, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // AND
     opcode = 7'b0110011;
     funct3 = 3'b111;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0010, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0010, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // OR
     opcode = 7'b0110011;
     funct3 = 3'b110;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0011, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0011, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // XOR
     opcode = 7'b0110011;
     funct3 = 3'b100;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0100, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0100, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SLT
     opcode = 7'b0110011;
     funct3 = 3'b010;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0101, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0101, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
+
 
     // SLL
     opcode = 7'b0110011;
     funct3 = 3'b001;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0110, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0110, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SRL
     opcode = 7'b0110011;
     funct3 = 3'b101;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0111, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0111, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SRA
     opcode = 7'b0110011;
     funct3 = 3'b101;
     funct7 = 7'b0100000;
     #1;
-    check(4'b1000, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b1000, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SLTU
     opcode = 7'b0110011;
     funct3 = 3'b011;
     funct7 = 7'b0000000;
     #1;
-    check(4'b1100, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b1100, 1'b0, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // ADDI
     opcode = 7'b0010011;
     funct3 = 3'b000;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0000, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // ANDI
     opcode = 7'b0010011;
     funct3 = 3'b111; 
     funct7 = 7'b1111000; // arbitrary 7 bits since ANDI ignores these
     #1; 
-    check(4'b0010, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0010, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // ORI
     opcode = 7'b0010011;
     funct3 = 3'b110;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0011, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0011, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // XORI
     opcode = 7'b0010011;
     funct3 = 3'b100;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0100, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0100, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SLTI
     opcode = 7'b0010011;
     funct3 = 3'b010;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0101, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0101, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SLLI
     opcode = 7'b0010011;
     funct3 = 3'b001;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0110, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0110, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SRLI
     opcode = 7'b0010011;
     funct3 = 3'b101;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0111, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b0111, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SRAI
     opcode = 7'b0010011;
     funct3 = 3'b101;
     funct7 = 7'b0100000;
     #1;
-    check(4'b1000, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b1000, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SLTIU
     opcode = 7'b0010011;
     funct3 = 3'b011;
     funct7 = 7'b0000000;
     #1;
-    check(4'b1100, 1'b1, 1'b1, 1'b0, 1'b0, 1'b0, 1'b0);
+    check(4'b1100, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // LW
     opcode = 7'b0000011;
     funct3 = 3'b010;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b1, 1'b1, 1'b0, 1'b1, 1'b0, 1'b0);
+    check(4'b0000, 1'b1, 1'b1, 1'b0, 2'b01, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // LB; not currently supported
     opcode = 7'b0000011;
     funct3 = 3'b000;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
     // SW
     opcode = 7'b0100011;
     funct3 = 3'b010;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b1, 1'b0, 1'b1, 1'b0, 1'b0, 1'b0);
+    check(4'b0000, 1'b1, 1'b0, 1'b1, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SB; not currently supported
     opcode = 7'b0100011;
     funct3 = 3'b000;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
     // BEQ
     opcode = 7'b1100011;
     funct3 = 3'b000;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0001, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0);
+    check(4'b0001, 1'b0, 1'b0, 1'b0, 2'b00, 1'b1, 1'b0, 1'b0, 1'b0);
 
     // BNE; not currently supported
     opcode = 7'b1100011;
     funct3 = 3'b001;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
     // SLLI with illegal funct7; shift encodings require instr[31:25] = 0000000
     opcode = 7'b0010011;
     funct3 = 3'b001;
     funct7 = 7'b0100000;   
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
+
+    // Legal JAL
+    opcode = 7'b1101111;
+    funct3 = 3'b111;
+    funct7 = 7'b0110100; 
+    #1;
+    check(4'b0000, 1'b0, 1'b1, 1'b0, 2'b10, 1'b0, 1'b1, 1'b0, 1'b0);
+
+    // Legal JALR
+    opcode = 7'b1100111;
+    funct3 = 3'b000;
+    funct7 = 7'b0110100; 
+    #1;
+    check(4'b0000, 1'b1, 1'b1, 1'b0, 2'b10, 1'b0, 1'b1, 1'b1, 1'b0);
+
+     // Illegal JALR
+    opcode = 7'b1100111;
+    funct3 = 3'b100; // funct3 must be 3'b000
+    funct7 = 7'b0110100; 
+    #1;
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
     // R-type funct7=0100000 with funct3 that is neither SUB (000) nor SRA (101)
     opcode = 7'b0110011;
     funct3 = 3'b001;     
     funct7 = 7'b0100000;
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
     // MUL: valid M-extension instruction, unsupported by current core
     opcode = 7'b0110011;
     funct3 = 3'b000;
     funct7 = 7'b0000001;
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
     // Garbage opcode
     opcode = 7'b1111111;
     funct3 = 3'b000;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
     for (op_i = 0; op_i < 128; op_i = op_i + 1) begin
         for (f3_i = 0; f3_i < 8; f3_i = f3_i + 1) begin
@@ -373,10 +414,10 @@ initial begin
                     $display("SWEEP FAIL: opcode:%b | funct3:%b | funct7:%b | actual:%b | expected:%b", opcode, funct3, funct7, illegal, sweep_exp_illegal);
                 end
                 
-                if (sweep_exp_illegal && (reg_write || mem_write || branch)) begin  
+                if (sweep_exp_illegal && (reg_write || mem_write || branch || jump || jump_reg)) begin  
                     errors = errors + 1;
-                    $display("UNSAFE ILLEGAL: opcode=%b funct3=%b funct7=%b | rw=%b mw=%b br=%b",
-                    opcode, funct3, funct7, reg_write, mem_write, branch);
+                    $display("UNSAFE ILLEGAL: opcode=%b funct3=%b funct7=%b | rw=%b mw=%b br=%b j=%b jr= %b",
+                    opcode, funct3, funct7, reg_write, mem_write, branch, jump, jump_reg);
                 end
 
                 if (reg_write && mem_write) begin

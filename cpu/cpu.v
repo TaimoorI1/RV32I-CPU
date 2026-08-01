@@ -18,11 +18,16 @@ wire alu_src;
 wire [3:0] alu_control;
 wire mem_write; 
 wire [31:0] dmem_read_data;
-wire mem_to_reg;
+wire [1:0] wb_select;
 wire zero;
-wire [31:0] branch_target;
-wire take_branch;
+wire [31:0] redirect_target;
+wire redirect_valid;
 wire branch;
+wire jump;
+wire jump_reg;
+
+wire [31:0] pc_plus_4;
+assign pc_plus_4 = pc + 32'd4;
 
 
 // PC sends byte address to imem, imem outputs the instruction
@@ -30,13 +35,13 @@ fetch fetch_inst (
     .clk(clk),
     .reset(reset),
     .pc(pc),
-    .branch_target(branch_target),
-    .take_branch(take_branch),
+    .redirect_target(redirect_target),
+    .redirect_valid(redirect_valid),
     .instr(instr)
 );
 
-assign branch_target = pc + imm;
-assign take_branch = branch & zero;
+assign redirect_target = pc + imm;
+assign redirect_valid = (branch & zero) | (jump && !(jump_reg));
 
 
 // instruction goes to decode, which deconstructs rs1, rs2, rd, imm
@@ -51,7 +56,14 @@ decode decode_inst (
 );
 
 // mux for wd in regfile
-wire [31:0] wb_data = mem_to_reg ? dmem_read_data : alu_result;
+wire [31:0] wb_data;
+
+assign wb_data = 
+    (wb_select == 2'b00) ? alu_result : 
+    (wb_select == 2'b01) ? dmem_read_data : 
+    (wb_select == 2'b10) ? pc_plus_4 : 
+                           32'b0;
+
 
 // regfile reads rs1/rs2, outputs rd1, rd2
 regfile regfile_inst (
@@ -89,9 +101,11 @@ control control_inst (
     .reg_write(reg_write),
     .alu_src(alu_src),
     .alu_control(alu_control),
-    .mem_to_reg(mem_to_reg),
+    .wb_select(wb_select),
     .mem_write(mem_write),
     .branch(branch),
+    .jump(jump),
+    .jump_reg(jump_reg),
     .illegal(illegal)
 );
 
