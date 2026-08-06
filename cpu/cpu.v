@@ -25,6 +25,15 @@ wire redirect_valid;
 wire branch;
 wire jump;
 wire jump_reg;
+wire [31:0] pc_relative_target;
+wire [31:0] jalr_target;
+
+assign pc_relative_target = pc + imm; 
+assign jalr_target = {alu_result[31:1], 1'b0};
+
+assign redirect_valid = (branch & zero) | jump;
+assign redirect_target = jump_reg ? jalr_target : pc_relative_target;
+
 
 wire [31:0] pc_plus_4;
 assign pc_plus_4 = pc + 32'd4;
@@ -39,10 +48,6 @@ fetch fetch_inst (
     .redirect_valid(redirect_valid),
     .instr(instr)
 );
-
-assign redirect_target = pc + imm;
-assign redirect_valid = (branch & zero) | (jump && !(jump_reg));
-
 
 // instruction goes to decode, which deconstructs rs1, rs2, rd, imm
 decode decode_inst (

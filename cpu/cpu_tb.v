@@ -2,7 +2,7 @@ module cpu_tb;
     reg clk;
     reg reset;
     wire illegal;
-
+    
     cpu dut (
         .clk(clk),
         .reset(reset),
@@ -55,14 +55,22 @@ module cpu_tb;
     // instr 16, address 60 = 32'hFE000AE3; beq  x0,  x0, loop   // -12
 
     // done:
-    // instr 17, address 64 = 32'h06300613; addi x12, x0, 99
-    // instr 18, address 68 = 32'h03700713; addi x14, x0, 55   // known starting value
-    // instr 19, address 72 = 32'h00C006EF; jal  x13, +12
-    // instr 20, address 76 = 32'h06F00713; addi x14, x0, 111  // skipped
-    // instr 21, address 80 = 32'h0DE00713; addi x14, x0, 222  // skipped
-    // instr 22, address 84 = 32'h04D00793; addi x15, x0, 77   // jump target
-    // instr 23, address 88 = 32'h000000FF; illegal instruction
-    // instr 24, address 92 = 32'h00000063; beq  x0,  x0, 0     // spin
+    // instr 17, address 64  = 32'h06300613; addi x12, x0, 99
+    // instr 18, address 68  = 32'h03700713; addi x14, x0, 55   // known starting value
+    // instr 19, address 72  = 32'h00C006EF; jal  x13, +12
+    // instr 20, address 76  = 32'h06F00713; addi x14, x0, 111  // skipped
+    // instr 21, address 80  = 32'h0DE00713; addi x14, x0, 222  // skipped
+    // instr 22, address 84  = 32'h04D00793; addi x15, x0, 77   // JAL target
+
+    // JALR:
+    // instr 23, address 88  = 32'h06C00813; addi x16, x0, 108  // target base
+    // instr 24, address 92  = 32'h04200913; addi x18, x0, 66   // known starting value
+    // instr 25, address 96  = 32'h001808E7; jalr x17, 1(x16)
+    // instr 26, address 100 = 32'h06F00913; addi x18, x0, 111  // skipped
+    // instr 27, address 104 = 32'h0DE00913; addi x18, x0, 222  // skipped
+    // instr 28, address 108 = 32'h05800993; addi x19, x0, 88   // JALR target
+    // instr 29, address 112 = 32'h000000FF; illegal instruction
+    // instr 30, address 116 = 32'h00000063; beq  x0,  x0, 0     // spin
 
     initial begin
         #100000;
@@ -95,8 +103,14 @@ module cpu_tb;
         dut.fetch_inst.imem_inst.mem[19] = 32'h06F00713;
         dut.fetch_inst.imem_inst.mem[20] = 32'h0DE00713;
         dut.fetch_inst.imem_inst.mem[21] = 32'h04D00793;
-        dut.fetch_inst.imem_inst.mem[22] = 32'h000000FF;
-        dut.fetch_inst.imem_inst.mem[23] = 32'h00000063;
+        dut.fetch_inst.imem_inst.mem[22] = 32'h06C00813;
+        dut.fetch_inst.imem_inst.mem[23] = 32'h04200913;
+        dut.fetch_inst.imem_inst.mem[24] = 32'h001808E7;
+        dut.fetch_inst.imem_inst.mem[25] = 32'h06F00913;
+        dut.fetch_inst.imem_inst.mem[26] = 32'h0DE00913;
+        dut.fetch_inst.imem_inst.mem[27] = 32'h05800993;
+        dut.fetch_inst.imem_inst.mem[28] = 32'h000000FF;
+        dut.fetch_inst.imem_inst.mem[29] = 32'h00000063;
 
         @(posedge clk);
         #1 reset = 0;
@@ -120,7 +134,11 @@ module cpu_tb;
         check(dut.regfile_inst.registers[13], 32'd76, "JAL writes PC+4 link address to x13");
         check(dut.regfile_inst.registers[14], 32'd55, "JAL leaves x14 unchanged across skipped instructions");
         check(dut.regfile_inst.registers[15], 32'd77, "JAL executes target instruction");
-        check(dut.fetch_inst.pc_inst.pc, 32'd92, "PC parked at relocated spin loop");
+        check(dut.regfile_inst.registers[16], 32'd108, "JALR base register contains target address");
+        check(dut.regfile_inst.registers[17], 32'd100, "JALR writes PC+4 link address to x17");
+        check(dut.regfile_inst.registers[18], 32'd66, "JALR leaves x18 unchanged across skipped instructions");
+        check(dut.regfile_inst.registers[19], 32'd88, "JALR executes target instruction");
+        check(dut.fetch_inst.pc_inst.pc, 32'd116, "PC parked at relocated spin loop");
         check(illegal_count, 32'd1, "illegal counter expected 1");
 
         $display("PC = %0d", dut.fetch_inst.pc_inst.pc);
