@@ -18,7 +18,7 @@ wire alu_src;
 wire [3:0] alu_control;
 wire mem_write; 
 wire [31:0] dmem_read_data;
-wire [1:0] wb_select;
+wire [2:0] wb_select;
 wire zero;
 wire [31:0] redirect_target;
 wire redirect_valid;
@@ -67,6 +67,8 @@ assign wb_data =
     (wb_select == 2'b00) ? alu_result : 
     (wb_select == 2'b01) ? dmem_read_data : 
     (wb_select == 2'b10) ? pc_plus_4 : 
+    (wb_select == 3'b011) ? imm :
+    (wb_select == 3'b100) ? pc_relative_target : 
                            32'b0;
 
 

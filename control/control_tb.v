@@ -8,7 +8,7 @@ wire reg_write;
 wire alu_src;
 wire [3:0] alu_control;
 wire mem_write;
-wire [1:0] wb_select;
+wire [2:0] wb_select;
 wire branch;
 wire jump;
 wire jump_reg;
@@ -43,7 +43,7 @@ task check;
     input exp_alu_src;
     input exp_reg_write;
     input exp_mem_write;
-    input [1:0] exp_wb_select;
+    input [2:0] exp_wb_select;
     input exp_branch;
     input exp_jump;
     input exp_jump_reg;
@@ -157,6 +157,14 @@ function expected_illegal;
 
              7'b1100111 : begin // JALR
                 if (f3 == 3'b000) expected_illegal = 1'b0;
+            end 
+
+            7'b0110111 : begin // LUI
+                expected_illegal = 1'b0;
+            end
+
+            7'b0010111 : begin // AUIPC
+                expected_illegal = 1'b0;
             end 
 
         endcase
@@ -374,6 +382,21 @@ initial begin
     funct7 = 7'b0110100; 
     #1;
     check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
+
+    // LUI
+    opcode = 7'b0110111;
+    funct3 = 3'b000; // irrelevant
+    funct7 = 7'b0000000;  // irrelevant
+    #1;
+    check(4'b0000, 1'b0, 1'b1, 1'b0, 3'b011, 1'b0, 1'b0, 1'b0, 1'b0);
+
+    // AUIPC
+    opcode = 7'b0010111;
+    funct3 = 3'b000; // irrelevant
+    funct7 = 7'b0000000;  // irrelevant
+    #1;
+    check(4'b0000, 1'b0, 1'b1, 1'b0, 3'b100, 1'b0, 1'b0, 1'b0, 1'b0);
+
 
     // R-type funct7=0100000 with funct3 that is neither SUB (000) nor SRA (101)
     opcode = 7'b0110011;

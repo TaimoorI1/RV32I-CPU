@@ -11,7 +11,7 @@ module fetch (
     wire [31:0] pc_plus_4;
     wire [31:0] next_pc;
 
-    // its next_pc input is fed by the adder
+    // its next_pc input is fed by redirect mux
     pc pc_inst (
         .clk     (clk),
         .reset   (reset),

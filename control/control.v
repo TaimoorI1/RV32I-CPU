@@ -6,7 +6,7 @@ module control (
     output reg reg_write,
     output reg alu_src,
     output reg [3:0] alu_control,
-    output reg [1:0] wb_select,
+    output reg [2:0] wb_select,
     output reg mem_write,
     output reg branch,
     output reg jump,
@@ -170,9 +170,30 @@ always @(*) begin
             end
 
             else illegal = 1'b1;
-
         end
 
+        7'b0110111 : begin // LUI
+            reg_write =  1'b1;
+            alu_src = 1'b0;
+            alu_control = 4'b0000;
+            mem_write = 1'b0;
+            wb_select = 3'b011; // imm
+            branch = 1'b0;
+            jump = 1'b0;
+            jump_reg = 1'b0;
+        end
+
+        7'b0010111 : begin // AUIPC
+            reg_write = 1'b1;
+            alu_src = 1'b0;
+            alu_control = 4'b0000;
+            mem_write = 1'b0;
+            wb_select = 3'b100;
+            branch = 1'b0;
+            jump = 1'b0;
+            jump_reg = 1'b0;
+        end
+        
         default : illegal = 1'b1;
 
    endcase

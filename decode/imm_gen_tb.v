@@ -70,6 +70,15 @@ module imm_gen_tb;
         instr = {1'b1, 10'b1111111100, 1'b1, 8'hFF, 5'b0100, 7'b1101111};
         check(32'hFFFFFFF8, "J-type negative offset");
 
+        // Test 13
+        instr = {20'h12345, 5'b01010, 7'b0110111};
+        check(32'h12345000, "LUI");
+
+        // Test 14
+        instr = {20'h54321, 5'b00010, 7'b0010111};
+        check(32'h54321000, "AUIPC");
+
+
 
         if (errors == 0) $display("ALL %0d TESTS PASSED", tests);
         else             $display("%0d/%0d TESTS FAILED", errors, tests);
