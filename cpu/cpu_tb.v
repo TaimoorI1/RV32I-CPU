@@ -70,12 +70,20 @@ module cpu_tb;
     // instr 27, address 104 = 32'h0DE00913; addi x18, x0, 222  // skipped
     // instr 28, address 108 = 32'h05800993; addi x19, x0, 88   // JALR target
 
-    // LUI:
+    // LUI, AUIPC:
     // instr 29, address 112 = 32'h12345A37: lui x20, 0x12345
     // instr 30, address 116 = 32'h00001A97: auipc x21, 0x1    
 
-    // instr 31, address 120 = 32'h000000FF; illegal instruction
-    // instr 32, address 124 = 32'h00000063; beq  x0,  x0, 0     // spin
+    // instr 31, address 120 = 32'h0060FB13 andi  x22, x1, 6
+    // instr 32, address 124 = 32'h0050EB93 ori x23, x1, 5
+    // instr 33, address 128 = 32'h00F0CC13 xori  x24, x1, 15
+    // instr 34, address 132 = 32'h00132C93 slti  x25, x6, 1
+    // instr 35, address 136 = 32'h00133D13 sltiu x26, x6, 1
+    // instr 36, address 140 = 32'h00309D93 slli  x27, x1, 3
+    // instr 37, address 144 = 32'h00235E13 srli  x28, x6, 2
+
+    // instr 38, address 148 = 32'h000000FF; illegal instruction
+    // instr 39, address 152 = 32'h00000063; beq  x0,  x0, 0     // spin
 
     initial begin
         #100000;
@@ -116,13 +124,20 @@ module cpu_tb;
         dut.fetch_inst.imem_inst.mem[27] = 32'h05800993;
         dut.fetch_inst.imem_inst.mem[28] = 32'h12345A37;
         dut.fetch_inst.imem_inst.mem[29] = 32'h00001A97;
-        dut.fetch_inst.imem_inst.mem[30] = 32'h000000FF;
-        dut.fetch_inst.imem_inst.mem[31] = 32'h00000063;
+        dut.fetch_inst.imem_inst.mem[30] = 32'h0060FB13; 
+        dut.fetch_inst.imem_inst.mem[31] = 32'h0050EB93; 
+        dut.fetch_inst.imem_inst.mem[32] = 32'h00F0CC13; 
+        dut.fetch_inst.imem_inst.mem[33] = 32'h00132C93; 
+        dut.fetch_inst.imem_inst.mem[34] = 32'h00133D13; 
+        dut.fetch_inst.imem_inst.mem[35] = 32'h00309D93; 
+        dut.fetch_inst.imem_inst.mem[36] = 32'h00235E13; 
+        dut.fetch_inst.imem_inst.mem[37] = 32'h000000FF; 
+        dut.fetch_inst.imem_inst.mem[38] = 32'h00000063;
 
         @(posedge clk);
         #1 reset = 0;
 
-        repeat (35) @(posedge clk);
+        repeat (45) @(posedge clk);
 
         check(dut.regfile_inst.registers[0], 32'd0, "x0 must be 0");
         check(dut.regfile_inst.registers[1], 32'd10, "addi x1, x0, 10");
@@ -147,7 +162,14 @@ module cpu_tb;
         check(dut.regfile_inst.registers[19], 32'd88, "JALR executes target instruction");
         check(dut.regfile_inst.registers[20], 32'h12345000, "LUI loads immediate into x20");
         check(dut.regfile_inst.registers[21], 32'h00001074, "AUIPC loads PC + immediate into x21");
-        check(dut.fetch_inst.pc_inst.pc, 32'd124, "PC parked at relocated spin loop");
+        check(dut.regfile_inst.registers[22], 32'd2, "ANDI x22, x1, 6");
+        check(dut.regfile_inst.registers[23], 32'd15, "ORI x23, x1, 5");
+        check(dut.regfile_inst.registers[24], 32'd5, "XORI x24, x1, 15");
+        check(dut.regfile_inst.registers[25], 32'd1, "SLTI signed -8 < 1");
+        check(dut.regfile_inst.registers[26], 32'd0, "SLTIU unsigned 0xFFFFFFF8 < 1");
+        check(dut.regfile_inst.registers[27], 32'h00000050, "SLLI x27, x1, 3");
+        check(dut.regfile_inst.registers[28], 32'h3FFFFFFE, "SRLI x28, x6, 2");
+        check(dut.fetch_inst.pc_inst.pc, 32'd152, "PC parked at relocated spin loop");
         check(illegal_count, 32'd1, "illegal counter expected 1");
 
         $display("PC = %0d", dut.fetch_inst.pc_inst.pc);
