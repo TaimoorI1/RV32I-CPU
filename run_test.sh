@@ -24,7 +24,9 @@ iverilog -o cpu_test \
     regfile/regfile.v \
     alu/alu.v \
     control/control.v \
-    dmem/dmem.v
+    dmem/dmem.v \
+    dmem/store_formatter.v
+
 
 vvp cpu_test > cpu_result.txt
 cat cpu_result.txt
@@ -39,10 +41,35 @@ iverilog -o imm_gen_test \
 vvp imm_gen_test > imm_gen_result.txt
 cat imm_gen_result.txt
 
+# test 4: data memory
+
+iverilog -o dmem_test \
+    dmem/dmem_tb.v \
+    dmem/dmem.v
+
+vvp dmem_test > dmem_result.txt
+cat dmem_result.txt
+
+
+# test 5: store formatter
+
+iverilog -o store_formatter_test \
+    dmem/store_formatter_tb.v \
+    dmem/store_formatter.v
+
+vvp store_formatter_test > store_formatter_result.txt
+cat store_formatter_result.txt
+
 
 # verdict
 
-if grep -q "FAIL" control_result.txt cpu_result.txt imm_gen_result.txt; then
+if grep -q "FAIL" \
+    control_result.txt \
+    cpu_result.txt \
+    imm_gen_result.txt \
+    dmem_result.txt \
+    store_formatter_result.txt; then
+
     echo "REGRESSION FAILED"
     exit 1
 fi

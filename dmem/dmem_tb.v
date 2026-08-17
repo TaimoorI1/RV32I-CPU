@@ -82,9 +82,6 @@ module dmem_tb;
             else $display("FAIL: SB-style write, got %0h", read_data);
         end
 
-
-
-
         $finish;
     end
 endmodule

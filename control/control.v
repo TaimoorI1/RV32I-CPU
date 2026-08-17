@@ -7,12 +7,11 @@ module control (
     output reg alu_src,
     output reg [3:0] alu_control,
     output reg [2:0] wb_select,
-    output reg mem_write,
+    output reg store_en,
     output reg branch,
     output reg jump,
     output reg jump_reg,
     output reg illegal
-
 );
 
 always @(*) begin
@@ -20,7 +19,7 @@ always @(*) begin
     alu_src = 1'b0;
     alu_control = 4'b0000;
     wb_select = 2'b00;
-    mem_write = 1'b0;
+    store_en = 1'b0;
     branch = 1'b0;
     jump = 1'b0;
     jump_reg = 1'b0;
@@ -108,7 +107,7 @@ always @(*) begin
                 3'b010 : begin
                     reg_write = 1'b1;
                     alu_src = 1'b1;
-                    mem_write = 1'b0;
+                    store_en = 1'b0;
                     wb_select = 2'b01;
                     alu_control = 4'b0000;
                 end
@@ -118,12 +117,28 @@ always @(*) begin
         end
         
 
-        7'b0100011 : begin // sw operations
+        7'b0100011 : begin // store operations
             case (funct3)
-                3'b010 : begin
+                3'b000 : begin // sb
                     reg_write = 1'b0;
                     alu_src = 1'b1;
-                    mem_write = 1'b1;
+                    store_en = 1'b1;
+                    wb_select = 2'b00;
+                    alu_control = 4'b0000;
+                end
+
+                3'b001 : begin // sh
+                    reg_write = 1'b0;
+                    alu_src = 1'b1;
+                    store_en = 1'b1;
+                    wb_select = 2'b00;
+                    alu_control = 4'b0000;
+                end
+
+                3'b010 : begin // sw
+                    reg_write = 1'b0;
+                    alu_src = 1'b1;
+                    store_en = 1'b1;
                     wb_select = 2'b00;
                     alu_control = 4'b0000;
                 end
@@ -138,7 +153,7 @@ always @(*) begin
                 3'b000 : begin
                     reg_write = 1'b0;
                     alu_src = 1'b0;
-                    mem_write = 1'b0;
+                    store_en = 1'b0;
                     wb_select = 2'b00;
                     alu_control = 4'b0001;
                     branch = 1'b1;
@@ -150,7 +165,7 @@ always @(*) begin
 
         7'b1101111 : begin // JAL 
             reg_write = 1'b1;
-            mem_write = 1'b0;
+            store_en = 1'b0;
             wb_select = 2'b10;
             branch = 1'b0;
             jump = 1'b1;
@@ -162,7 +177,7 @@ always @(*) begin
                 reg_write = 1'b1;
                 alu_src = 1'b1;
                 alu_control = 4'b0000;
-                mem_write = 1'b0;
+                store_en = 1'b0;
                 wb_select = 2'b10;
                 branch = 1'b0;
                 jump = 1'b1;
@@ -176,7 +191,7 @@ always @(*) begin
             reg_write =  1'b1;
             alu_src = 1'b0;
             alu_control = 4'b0000;
-            mem_write = 1'b0;
+            store_en = 1'b0;
             wb_select = 3'b011; // imm
             branch = 1'b0;
             jump = 1'b0;
@@ -187,7 +202,7 @@ always @(*) begin
             reg_write = 1'b1;
             alu_src = 1'b0;
             alu_control = 4'b0000;
-            mem_write = 1'b0;
+            store_en = 1'b0;
             wb_select = 3'b100;
             branch = 1'b0;
             jump = 1'b0;

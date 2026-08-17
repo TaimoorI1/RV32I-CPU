@@ -7,7 +7,7 @@ reg [6:0] funct7;
 wire reg_write;
 wire alu_src;
 wire [3:0] alu_control;
-wire mem_write;
+wire store_en;
 wire [2:0] wb_select;
 wire branch;
 wire jump;
@@ -29,7 +29,7 @@ control dut (
     .reg_write(reg_write),
     .alu_src(alu_src),
     .alu_control(alu_control),
-    .mem_write(mem_write),
+    .store_en(store_en),
     .wb_select(wb_select),
     .branch(branch),
     .jump(jump),
@@ -42,7 +42,7 @@ task check;
     input [3:0] exp_alu_control;
     input exp_alu_src;
     input exp_reg_write;
-    input exp_mem_write;
+    input exp_store_en;
     input [2:0] exp_wb_select;
     input exp_branch;
     input exp_jump;
@@ -54,7 +54,7 @@ task check;
         if (!(alu_control === exp_alu_control &&
               alu_src === exp_alu_src &&
               reg_write === exp_reg_write &&
-              mem_write === exp_mem_write &&
+              store_en === exp_store_en &&
               wb_select === exp_wb_select &&
               branch === exp_branch &&
               jump === exp_jump &&
@@ -65,14 +65,14 @@ task check;
             errors = errors + 1;
 
             $display(
-                "FAIL: opcode=%b funct3=%b funct7=%b | got ctrl=%b src=%b wr=%b mw=%b m2r=%b br=%b j=%b jr=%b illegal=%b | expected ctrl=%b src=%b wr=%b mw=%b m2r=%b br=%b j=%b jr=%b illegal=%b",
+                "FAIL: opcode=%b funct3=%b funct7=%b | got ctrl=%b src=%b wr=%b se=%b m2r=%b br=%b j=%b jr=%b illegal=%b | expected ctrl=%b src=%b wr=%b se=%b m2r=%b br=%b j=%b jr=%b illegal=%b",
                 opcode,
                 funct3,
                 funct7,
                 alu_control,
                 alu_src,
                 reg_write,
-                mem_write,
+                store_en,
                 wb_select,
                 branch,
                 jump,
@@ -81,7 +81,7 @@ task check;
                 exp_alu_control,
                 exp_alu_src,
                 exp_reg_write,
-                exp_mem_write,
+                exp_store_en,
                 exp_wb_select,
                 exp_branch,
                 exp_jump,
@@ -142,7 +142,7 @@ function expected_illegal;
             end
 
             7'b0100011 : begin 
-                if (f3 == 3'b010) 
+                if (f3 == 3'b000 || f3 == 3'b001 || f3 == 3'b010) 
                     expected_illegal = 1'b0;
             end
 
@@ -327,6 +327,20 @@ initial begin
     #1;
     check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
+    // SB
+    opcode = 7'b0100011;
+    funct3 = 3'b000;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0000, 1'b1, 1'b0, 1'b1, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
+
+    // SH
+    opcode = 7'b0100011;
+    funct3 = 3'b001;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0000, 1'b1, 1'b0, 1'b1, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
+
     // SW
     opcode = 7'b0100011;
     funct3 = 3'b010;
@@ -334,12 +348,6 @@ initial begin
     #1;
     check(4'b0000, 1'b1, 1'b0, 1'b1, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
-    // SB; not currently supported
-    opcode = 7'b0100011;
-    funct3 = 3'b000;
-    funct7 = 7'b0000000;
-    #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
 
     // BEQ
     opcode = 7'b1100011;
@@ -437,15 +445,15 @@ initial begin
                     $display("SWEEP FAIL: opcode:%b | funct3:%b | funct7:%b | actual:%b | expected:%b", opcode, funct3, funct7, illegal, sweep_exp_illegal);
                 end
                 
-                if (sweep_exp_illegal && (reg_write || mem_write || branch || jump || jump_reg)) begin  
+                if (sweep_exp_illegal && (reg_write || store_en || branch || jump || jump_reg)) begin  
                     errors = errors + 1;
-                    $display("UNSAFE ILLEGAL: opcode=%b funct3=%b funct7=%b | rw=%b mw=%b br=%b j=%b jr= %b",
-                    opcode, funct3, funct7, reg_write, mem_write, branch, jump, jump_reg);
+                    $display("UNSAFE ILLEGAL: opcode=%b funct3=%b funct7=%b | rw=%b se=%b br=%b j=%b jr= %b",
+                    opcode, funct3, funct7, reg_write, store_en, branch, jump, jump_reg);
                 end
 
-                if (reg_write && mem_write) begin
+                if (reg_write && store_en) begin
                     errors = errors + 1;
-                    $display("WRITE CONFLICT: reg_write and mem_write both enabled | opcode=%b funct3=%b funct7=%b", opcode, funct3, funct7);
+                    $display("WRITE CONFLICT: reg_write and store_en both enabled | opcode=%b funct3=%b funct7=%b", opcode, funct3, funct7);
                 end
 
             end

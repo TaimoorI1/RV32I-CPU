@@ -5,6 +5,7 @@ module store_formatter_tb;
     reg [31:0] addr;
     reg [2:0] funct3;
     reg [31:0] rd2;
+    reg store_en;
 
     wire [31:0] store_data;
     wire [3:0] write_enable;
@@ -14,6 +15,7 @@ module store_formatter_tb;
         .addr(addr),
         .funct3(funct3),
         .rd2(rd2),
+        .store_en(store_en),
         .store_data(store_data),
         .write_enable(write_enable),
         .misaligned(misaligned)
@@ -57,6 +59,7 @@ module store_formatter_tb;
     initial begin
 
         rd2 = 32'h12345678;
+        store_en = 1'b1;
 
         // SB
         check(3'b000, 2'b00, 32'h00000078, 4'b0001, 1'b0);
@@ -75,6 +78,17 @@ module store_formatter_tb;
         check(3'b010, 2'b01, 32'h00000000, 4'b0000, 1'b1);
         check(3'b010, 2'b10, 32'h00000000, 4'b0000, 1'b1);
         check(3'b010, 2'b11, 32'h00000000, 4'b0000, 1'b1);
+
+        // store disabled test
+        store_en = 1'b0; funct3 = 3'b000; addr = 32'h0;
+        #1;
+        if (write_enable === 4'b0000 && store_data === 32'h00000000 && misaligned === 1'b0)
+            $display("PASS: store disabled");
+        else 
+            $display("FAIL: store disabled, data=%h we=%b misaligned=%b",
+            store_data,
+            write_enable,
+            misaligned);
 
         $finish;
     end

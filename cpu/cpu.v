@@ -16,8 +16,11 @@ wire [31:0] pc;
 wire reg_write;
 wire alu_src;
 wire [3:0] alu_control;
-wire mem_write; 
+wire [3:0] write_enable; 
+wire store_en;
 wire [31:0] dmem_read_data;
+wire [31:0] store_data;
+wire misaligned;
 wire [2:0] wb_select;
 wire zero;
 wire [31:0] redirect_target;
@@ -27,6 +30,9 @@ wire jump;
 wire jump_reg;
 wire [31:0] pc_relative_target;
 wire [31:0] jalr_target;
+
+
+
 
 assign pc_relative_target = pc + imm; 
 assign jalr_target = {alu_result[31:1], 1'b0};
@@ -109,7 +115,7 @@ control control_inst (
     .alu_src(alu_src),
     .alu_control(alu_control),
     .wb_select(wb_select),
-    .mem_write(mem_write),
+    .store_en(store_en),
     .branch(branch),
     .jump(jump),
     .jump_reg(jump_reg),
@@ -119,9 +125,19 @@ control control_inst (
 dmem dmem_inst (
     .clk(clk),
     .addr(alu_result), 
-    .write_data(rd2),
-    .mem_write(mem_write),
+    .store_data(store_data),
+    .write_enable(write_enable),
     .read_data(dmem_read_data)
+);
+
+store_formatter store_formatter_inst (
+    .addr(alu_result),
+    .funct3(funct3),
+    .rd2(rd2),
+    .store_en(store_en),
+    .store_data(store_data),
+    .write_enable(write_enable),
+    .misaligned(misaligned)
 );
 
 endmodule
