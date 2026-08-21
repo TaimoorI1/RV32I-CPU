@@ -82,8 +82,12 @@ module cpu_tb;
     // instr 36, address 140 = 32'h00309D93 slli  x27, x1, 3
     // instr 37, address 144 = 32'h00235E13 srli  x28, x6, 2
 
-    // instr 38, address 148 = 32'h000000FF; illegal instruction
-    // instr 39, address 152 = 32'h00000063; beq  x0,  x0, 0     // spin
+    // SB, SH:
+    // instr 38, address 148 = 32'h00F100A3 sb x15, 1(x2)
+    // instr 39, address 152 = 32'h01411123 sh x20, 2(x2)
+
+    // instr 40, address 156 = 32'h000000FF; illegal instruction
+    // instr 41, address 160 = 32'h00000063; beq  x0,  x0, 0     // spin
 
     initial begin
         #100000;
@@ -131,8 +135,11 @@ module cpu_tb;
         dut.fetch_inst.imem_inst.mem[34] = 32'h00133D13; 
         dut.fetch_inst.imem_inst.mem[35] = 32'h00309D93; 
         dut.fetch_inst.imem_inst.mem[36] = 32'h00235E13; 
-        dut.fetch_inst.imem_inst.mem[37] = 32'h000000FF; 
-        dut.fetch_inst.imem_inst.mem[38] = 32'h00000063;
+        dut.fetch_inst.imem_inst.mem[37] = 32'h00F100A3;
+        dut.fetch_inst.imem_inst.mem[38] = 32'h01411123;
+        dut.fetch_inst.imem_inst.mem[39] = 32'h000000FF; 
+        dut.fetch_inst.imem_inst.mem[40] = 32'h00000063;
+    
 
         @(posedge clk);
         #1 reset = 0;
@@ -147,7 +154,6 @@ module cpu_tb;
         check(dut.regfile_inst.registers[5], 32'd1, "slt x5, x1, x2");
         check(dut.regfile_inst.registers[6], 32'hFFFFFFF8, "addi x6, x0, -8");
         check(dut.regfile_inst.registers[7], 32'hFFFFFFFC, "srai x7, x6, 1");
-        check(dut.dmem_inst.storage[5], 32'd10, "sw x1, 0(x2)");
         check(dut.regfile_inst.registers[8], 32'd10, "lw x8, 0(x2)");
         check(dut.regfile_inst.registers[9], 32'd0, "x9 expected 0");
         check(dut.regfile_inst.registers[10], 32'd30, "x10 expected 30");
@@ -169,7 +175,8 @@ module cpu_tb;
         check(dut.regfile_inst.registers[26], 32'd0, "SLTIU unsigned 0xFFFFFFF8 < 1");
         check(dut.regfile_inst.registers[27], 32'h00000050, "SLLI x27, x1, 3");
         check(dut.regfile_inst.registers[28], 32'h3FFFFFFE, "SRLI x28, x6, 2");
-        check(dut.fetch_inst.pc_inst.pc, 32'd152, "PC parked at relocated spin loop");
+        check(dut.dmem_inst.storage[5], 32'h50004D0A, "sb x15, 1(x2); sh x20, 2(x2)");
+        check(dut.fetch_inst.pc_inst.pc, 32'd160, "PC parked at relocated spin loop");
         check(illegal_count, 32'd1, "illegal counter expected 1");
 
         $display("PC = %0d", dut.fetch_inst.pc_inst.pc);
