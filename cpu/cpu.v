@@ -15,6 +15,7 @@ wire [31:0] alu_result;
 wire [31:0] pc;
 wire reg_write;
 wire alu_src;
+wire reg_write_final;
 wire [3:0] alu_control;
 wire [3:0] write_enable; 
 wire store_en;
@@ -33,15 +34,13 @@ wire [31:0] jalr_target;
 wire [31:0] load_data;
 wire load_misaligned;
 
-
-
-
 assign pc_relative_target = pc + imm; 
 assign jalr_target = {alu_result[31:1], 1'b0};
 
 assign redirect_valid = (branch & zero) | jump;
 assign redirect_target = jump_reg ? jalr_target : pc_relative_target;
 
+assign reg_write_final = (reg_write && !(wb_select == 3'b001 && load_misaligned));
 
 wire [31:0] pc_plus_4;
 assign pc_plus_4 = pc + 32'd4;
@@ -87,7 +86,7 @@ regfile regfile_inst (
     .ra2(rs2),
     .wa(rd),
     .wd(wb_data),
-    .we(reg_write),
+    .we(reg_write_final),
     .rd1(rd1),
     .rd2(rd2)
 );
