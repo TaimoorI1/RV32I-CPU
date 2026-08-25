@@ -137,7 +137,7 @@ function expected_illegal;
             end
 
             7'b0000011 : begin
-                if (f3 == 3'b010) 
+                if (f3 == 3'b000 || f3 == 3'b001 || f3 == 3'b010 || f3 == 3'b100 || f3 == 3'b101) 
                     expected_illegal = 1'b0;
             end
 
@@ -313,6 +313,20 @@ initial begin
     #1;
     check(4'b1100, 1'b1, 1'b1, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
 
+    // LB
+    opcode = 7'b0000011;
+    funct3 = 3'b000;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0000, 1'b1, 1'b1, 1'b0, 2'b01, 1'b0, 1'b0, 1'b0, 1'b0);
+
+    // LH
+    opcode = 7'b0000011;
+    funct3 = 3'b001;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0000, 1'b1, 1'b1, 1'b0, 2'b01, 1'b0, 1'b0, 1'b0, 1'b0);
+
     // LW
     opcode = 7'b0000011;
     funct3 = 3'b010;
@@ -320,12 +334,19 @@ initial begin
     #1;
     check(4'b0000, 1'b1, 1'b1, 1'b0, 2'b01, 1'b0, 1'b0, 1'b0, 1'b0);
 
-    // LB; not currently supported
+    // LBU
     opcode = 7'b0000011;
-    funct3 = 3'b000;
+    funct3 = 3'b100;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0000, 1'b1, 1'b1, 1'b0, 2'b01, 1'b0, 1'b0, 1'b0, 1'b0);
+
+    // LHU
+    opcode = 7'b0000011;
+    funct3 = 3'b101;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0000, 1'b1, 1'b1, 1'b0, 2'b01, 1'b0, 1'b0, 1'b0, 1'b0);
 
     // SB
     opcode = 7'b0100011;
@@ -347,7 +368,6 @@ initial begin
     funct7 = 7'b0000000;
     #1;
     check(4'b0000, 1'b1, 1'b0, 1'b1, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
-
 
     // BEQ
     opcode = 7'b1100011;

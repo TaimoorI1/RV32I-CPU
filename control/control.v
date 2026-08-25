@@ -102,9 +102,42 @@ always @(*) begin
             endcase
         end
 
-        7'b0000011 : begin // lw operations 
+        7'b0000011 : begin // load operations 
             case (funct3)
-                3'b010 : begin
+
+                3'b000 : begin // lb
+                    reg_write = 1'b1;
+                    alu_src = 1'b1;
+                    store_en = 1'b0;
+                    wb_select = 2'b01;
+                    alu_control = 4'b0000;
+                end
+
+                3'b001 : begin // lh
+                    reg_write = 1'b1;
+                    alu_src = 1'b1;
+                    store_en = 1'b0;
+                    wb_select = 2'b01;
+                    alu_control = 4'b0000;
+                end 
+
+                3'b010 : begin // lw
+                    reg_write = 1'b1;
+                    alu_src = 1'b1;
+                    store_en = 1'b0;
+                    wb_select = 2'b01;
+                    alu_control = 4'b0000;
+                end
+
+                 3'b100 : begin // lbu
+                    reg_write = 1'b1;
+                    alu_src = 1'b1;
+                    store_en = 1'b0;
+                    wb_select = 2'b01;
+                    alu_control = 4'b0000;
+                end
+
+                3'b101 : begin // lhu
                     reg_write = 1'b1;
                     alu_src = 1'b1;
                     store_en = 1'b0;
