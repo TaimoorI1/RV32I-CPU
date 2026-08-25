@@ -30,6 +30,8 @@ wire jump;
 wire jump_reg;
 wire [31:0] pc_relative_target;
 wire [31:0] jalr_target;
+wire [31:0] load_data;
+wire load_misaligned;
 
 
 
@@ -71,7 +73,7 @@ wire [31:0] wb_data;
 
 assign wb_data = 
     (wb_select == 2'b00) ? alu_result : 
-    (wb_select == 2'b01) ? dmem_read_data : 
+    (wb_select == 2'b01) ? load_data : 
     (wb_select == 2'b10) ? pc_plus_4 : 
     (wb_select == 3'b011) ? imm :
     (wb_select == 3'b100) ? pc_relative_target : 
@@ -129,6 +131,15 @@ dmem dmem_inst (
     .write_enable(write_enable),
     .read_data(dmem_read_data)
 );
+
+load_formatter load_formatter_inst (
+    .dmem_data(dmem_read_data),
+    .addr_offset(alu_result[1:0]),
+    .funct3(funct3),
+    .load_data(load_data),
+    .misaligned(load_misaligned)
+);
+
 
 store_formatter store_formatter_inst (
     .addr(alu_result),
