@@ -1,4 +1,4 @@
-module cpu_tb;
+module cpu_branch_tb;
     reg clk;
     reg reset;
     wire illegal;
