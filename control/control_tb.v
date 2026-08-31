@@ -146,8 +146,8 @@ function expected_illegal;
                     expected_illegal = 1'b0;
             end
 
-            7'b1100011 : begin
-                if (f3 == 3'b000) 
+            7'b1100011 : begin 
+                if (f3 == 3'b000 || f3 == 3'b001 || f3 == 3'b100 || f3 == 3'b101 || f3 == 3'b110 || f3 == 3'b111)
                     expected_illegal = 1'b0;
             end
 
@@ -376,12 +376,41 @@ initial begin
     #1;
     check(4'b0001, 1'b0, 1'b0, 1'b0, 2'b00, 1'b1, 1'b0, 1'b0, 1'b0);
 
-    // BNE; not currently supported
+    // BNE
     opcode = 7'b1100011;
     funct3 = 3'b001;
     funct7 = 7'b0000000;
     #1;
-    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
+    check(4'b0001, 1'b0, 1'b0, 1'b0, 2'b00, 1'b1, 1'b0, 1'b0, 1'b0);
+
+    // BLT
+    opcode = 7'b1100011;
+    funct3 = 3'b100;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0001, 1'b0, 1'b0, 1'b0, 2'b00, 1'b1, 1'b0, 1'b0, 1'b0);
+
+    // BGE
+    opcode = 7'b1100011;
+    funct3 = 3'b101;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0001, 1'b0, 1'b0, 1'b0, 2'b00, 1'b1, 1'b0, 1'b0, 1'b0);
+
+    // BLTU
+    opcode = 7'b1100011;
+    funct3 = 3'b110;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0001, 1'b0, 1'b0, 1'b0, 2'b00, 1'b1, 1'b0, 1'b0, 1'b0);
+
+    // BGEU
+    opcode = 7'b1100011;
+    funct3 = 3'b111;
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0001, 1'b0, 1'b0, 1'b0, 2'b00, 1'b1, 1'b0, 1'b0, 1'b0);
+
 
     // SLLI with illegal funct7; shift encodings require instr[31:25] = 0000000
     opcode = 7'b0010011;
@@ -424,7 +453,6 @@ initial begin
     funct7 = 7'b0000000;  // irrelevant
     #1;
     check(4'b0000, 1'b0, 1'b1, 1'b0, 3'b100, 1'b0, 1'b0, 1'b0, 1'b0);
-
 
     // R-type funct7=0100000 with funct3 that is neither SUB (000) nor SRA (101)
     opcode = 7'b0110011;

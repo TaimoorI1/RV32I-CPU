@@ -183,14 +183,20 @@ always @(*) begin
 
         7'b1100011 : begin // B-type operations
             case (funct3)
-                3'b000 : begin
-                    reg_write = 1'b0;
-                    alu_src = 1'b0;
-                    store_en = 1'b0;
-                    wb_select = 2'b00;
+                3'b000, // beq
+                3'b001, // bne
+                3'b100, // blt
+                3'b101, // bge
+                3'b110, // bltu
+                3'b111: begin // bgeu
+                    reg_write   = 1'b0;
+                    alu_src     = 1'b0;
+                    store_en    = 1'b0;
+                    wb_select   = 2'b00;
                     alu_control = 4'b0001;
-                    branch = 1'b1;
+                    branch      = 1'b1;
                 end
+
 
                 default : illegal = 1'b1;
             endcase

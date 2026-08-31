@@ -33,11 +33,12 @@ wire [31:0] pc_relative_target;
 wire [31:0] jalr_target;
 wire [31:0] load_data;
 wire load_misaligned;
+wire branch_taken;
 
 assign pc_relative_target = pc + imm; 
 assign jalr_target = {alu_result[31:1], 1'b0};
 
-assign redirect_valid = (branch & zero) | jump;
+assign redirect_valid = (branch & branch_taken) | jump;
 assign redirect_target = jump_reg ? jalr_target : pc_relative_target;
 
 assign reg_write_final = (reg_write && !(wb_select == 3'b001 && load_misaligned));
@@ -148,6 +149,13 @@ store_formatter store_formatter_inst (
     .store_data(store_data),
     .write_enable(write_enable),
     .misaligned(misaligned)
+);
+
+branch_unit branch_unit_inst (
+    .rd1(rd1),
+    .rd2(rd2),
+    .funct3(funct3),
+    .branch_taken(branch_taken)
 );
 
 endmodule
