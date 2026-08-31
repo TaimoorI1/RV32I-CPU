@@ -167,10 +167,14 @@ function expected_illegal;
                 expected_illegal = 1'b0;
             end 
 
+            7'b0001111 : begin // FENCE
+                if (f3 == 3'b000) 
+                    expected_illegal = 1'b0;
+            end
+
         endcase
     end
 endfunction
-
 
 
 
@@ -460,6 +464,14 @@ initial begin
     funct7 = 7'b0100000;
     #1;
     check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b1);
+
+    // FENCE
+    opcode = 7'b0001111;
+    funct3 = 3'b000;     
+    funct7 = 7'b0000000;
+    #1;
+    check(4'b0000, 1'b0, 1'b0, 1'b0, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0);
+    
 
     // MUL: valid M-extension instruction, unsupported by current core
     opcode = 7'b0110011;

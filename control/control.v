@@ -247,6 +247,21 @@ always @(*) begin
             jump = 1'b0;
             jump_reg = 1'b0;
         end
+
+        7'b0001111 : begin // FENCE
+            if (funct3 == 3'b000) begin
+                reg_write = 1'b0;
+                alu_src = 1'b0;
+                alu_control = 4'b0000;
+                store_en = 1'b0;
+                wb_select = 3'b000;
+                branch = 1'b0;
+                jump = 1'b0;
+                jump_reg = 1'b0;
+            end
+            else 
+                illegal = 1'b1;
+        end
         
         default : illegal = 1'b1;
 
