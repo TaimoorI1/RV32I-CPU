@@ -107,56 +107,10 @@ module cpu_tb;
     initial begin
         reset = 1;
 
-        dut.dmem_inst.storage[6] = 32'h80F27F01; // pre-loaded memory word for subword tests
-
-        dut.fetch_inst.imem_inst.mem[0]  = 32'h00A00093;
-        dut.fetch_inst.imem_inst.mem[1]  = 32'h01400113;
-        dut.fetch_inst.imem_inst.mem[2]  = 32'h01E00193;
-        dut.fetch_inst.imem_inst.mem[3]  = 32'h0020C233;
-        dut.fetch_inst.imem_inst.mem[4]  = 32'h0020A2B3;
-        dut.fetch_inst.imem_inst.mem[5]  = 32'hFF800313;
-        dut.fetch_inst.imem_inst.mem[6]  = 32'h40135393;
-        dut.fetch_inst.imem_inst.mem[7]  = 32'h00112023;
-        dut.fetch_inst.imem_inst.mem[8]  = 32'h00012403;
-        dut.fetch_inst.imem_inst.mem[9]  = 32'h00300493;
-        dut.fetch_inst.imem_inst.mem[10] = 32'h00000513;
-        dut.fetch_inst.imem_inst.mem[11] = 32'h00000593;
-        dut.fetch_inst.imem_inst.mem[12] = 32'h00A50513;
-        dut.fetch_inst.imem_inst.mem[13] = 32'hFFF48493;
-        dut.fetch_inst.imem_inst.mem[14] = 32'h00B48463;
-        dut.fetch_inst.imem_inst.mem[15] = 32'hFE000AE3;
-        dut.fetch_inst.imem_inst.mem[16] = 32'h06300613;
-        dut.fetch_inst.imem_inst.mem[17] = 32'h03700713;
-        dut.fetch_inst.imem_inst.mem[18] = 32'h00C006EF;
-        dut.fetch_inst.imem_inst.mem[19] = 32'h06F00713;
-        dut.fetch_inst.imem_inst.mem[20] = 32'h0DE00713;
-        dut.fetch_inst.imem_inst.mem[21] = 32'h04D00793;
-        dut.fetch_inst.imem_inst.mem[22] = 32'h06C00813;
-        dut.fetch_inst.imem_inst.mem[23] = 32'h04200913;
-        dut.fetch_inst.imem_inst.mem[24] = 32'h001808E7;
-        dut.fetch_inst.imem_inst.mem[25] = 32'h06F00913;
-        dut.fetch_inst.imem_inst.mem[26] = 32'h0DE00913;
-        dut.fetch_inst.imem_inst.mem[27] = 32'h05800993;
-        dut.fetch_inst.imem_inst.mem[28] = 32'h12345A37;
-        dut.fetch_inst.imem_inst.mem[29] = 32'h00001A97;
-        dut.fetch_inst.imem_inst.mem[30] = 32'h0060FB13; 
-        dut.fetch_inst.imem_inst.mem[31] = 32'h0050EB93; 
-        dut.fetch_inst.imem_inst.mem[32] = 32'h00F0CC13; 
-        dut.fetch_inst.imem_inst.mem[33] = 32'h00132C93; 
-        dut.fetch_inst.imem_inst.mem[34] = 32'h00133D13; 
-        dut.fetch_inst.imem_inst.mem[35] = 32'h00309D93; 
-        dut.fetch_inst.imem_inst.mem[36] = 32'h00235E13; 
-        dut.fetch_inst.imem_inst.mem[37] = 32'h00F100A3;
-        dut.fetch_inst.imem_inst.mem[38] = 32'h01411123;
-        dut.fetch_inst.imem_inst.mem[39] = 32'h00710E83;
-        dut.fetch_inst.imem_inst.mem[40] = 32'h00611F03;
-        dut.fetch_inst.imem_inst.mem[41] = 32'h00714F83;
-        dut.fetch_inst.imem_inst.mem[42] = 32'h00615583;
-        dut.fetch_inst.imem_inst.mem[43] = 32'h00511603;
-        dut.fetch_inst.imem_inst.mem[44] = 32'h000000FF; 
-        dut.fetch_inst.imem_inst.mem[45] = 32'h00000063;
+        dut.dmem_inst.storage[6] = 32'h80F27F01;
+        
+        $readmemh("programs/asm/cpu_tb.hex", dut.fetch_inst.imem_inst.mem);
     
-
         @(posedge clk);
         #1 reset = 0;
 
