@@ -3,6 +3,9 @@
 *.vcd
 *_sim
 *_result.txt
+*.o
+*.elf
+programs/asm/*.hex
 
 alu/alu_tb
 control/controltest

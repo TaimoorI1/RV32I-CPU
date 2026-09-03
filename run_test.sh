@@ -77,6 +77,7 @@ iverilog -o cpu_branch_test \
 vvp cpu_branch_test > cpu_branch_result.txt
 cat cpu_branch_result.txt
 
+make hex
 
 # test 8: full CPU
 
@@ -98,8 +99,6 @@ iverilog -o cpu_test \
 
 vvp cpu_test > cpu_result.txt
 cat cpu_result.txt
-
-
 
 # verdict
 
