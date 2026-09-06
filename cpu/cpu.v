@@ -1,7 +1,22 @@
 module cpu (
     input clk,
     input reset,
-    output illegal
+    output illegal,
+
+    output reg retire_valid,
+    output reg [31:0] retire_pc,
+    output reg [31:0] retire_instr,
+
+    output reg retire_rd_we,
+    output reg [4:0] retire_rd_addr,
+    output reg [31:0] retire_rd_data,
+
+    output reg retire_mem_we,
+    output reg [3:0] retire_mem_wmask,
+    output reg [31:0] retire_mem_addr,
+    output reg [31:0] retire_mem_wdata,
+
+    output reg [31:0] retire_next_pc
 );
 
 wire [31:0] instr;
@@ -13,6 +28,7 @@ wire [31:0] imm;
 wire [31:0] rd1, rd2;
 wire [31:0] alu_result;
 wire [31:0] pc;
+wire [31:0] next_pc;
 wire reg_write;
 wire alu_src;
 wire reg_write_final;
@@ -45,6 +61,8 @@ assign reg_write_final = (reg_write && !(wb_select == 3'b001 && load_misaligned)
 
 wire [31:0] pc_plus_4;
 assign pc_plus_4 = pc + 32'd4;
+
+assign next_pc = redirect_valid ? redirect_target : pc_plus_4;
 
 
 // PC sends byte address to imem, imem outputs the instruction
@@ -157,5 +175,31 @@ branch_unit branch_unit_inst (
     .funct3(funct3),
     .branch_taken(branch_taken)
 );
+
+always @(posedge clk) begin
+    if 
+        (reset || illegal) begin
+        retire_valid <= 1'b0;
+        retire_rd_we <= 1'b0;
+        retire_mem_we <= 1'b0;
+        end
+    else begin
+        retire_valid <= 1'b1;
+        retire_pc <= pc;
+        retire_instr <= instr;
+        retire_next_pc <= next_pc;
+
+        retire_rd_we <= reg_write_final && (rd != 5'd0);
+        retire_rd_addr <= rd;
+        retire_rd_data <= wb_data;
+
+        retire_mem_we <= |write_enable;
+        retire_mem_wmask <= write_enable;
+        retire_mem_addr <= alu_result;
+        retire_mem_wdata <= store_data;
+
+    end
+
+end
 
 endmodule
