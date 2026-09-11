@@ -45,7 +45,12 @@ def parse_retire_line(line):
 
 regs = [0] * 32
 pc = 0
-memory = {}
+memory = {
+    24: 0x01,
+    25: 0x7F,
+    26: 0xF2,
+    27: 0x80,
+}
 
 def signed32(value):
             if value & 0x80000000:
@@ -122,9 +127,44 @@ with open("retire_trace.txt", "r") as trace_file:
             expected_rd_data = (regs[rs1] ^ regs[rs2]) & 0xFFFFFFFF
             instr_name = "XOR"
 
+        elif opcode == 0x33 and funct3 == 0x0 and funct7 == 0x00:
+            expected_rd_data = (regs[rs1] + regs[rs2]) & 0xFFFFFFFF
+            instr_name = "ADD"
+
+        elif opcode == 0x33 and funct3 == 0x0 and funct7 == 0x20:
+            expected_rd_data = (regs[rs1] - regs[rs2]) & 0xFFFFFFFF
+            instr_name = "SUB"
+
+        elif opcode == 0x33 and funct3 == 0x6 and funct7 == 0x00:
+            expected_rd_data = (regs[rs1] | regs[rs2]) & 0xFFFFFFFF
+            instr_name = "OR"
+
+        elif opcode == 0x33 and funct3 == 0x7 and funct7 == 0x00:
+            expected_rd_data = (regs[rs1] & regs[rs2]) & 0xFFFFFFFF
+            instr_name = "AND"
+
+        elif opcode == 0x33 and funct3 == 0x1 and funct7 == 0x00:
+            shamt = regs[rs2] & 0x1F
+            expected_rd_data = (regs[rs1] << shamt) & 0xFFFFFFFF
+            instr_name = "SLL"
+        
         elif opcode == 0x33 and funct3 == 0x2 and funct7 == 0x00:
             expected_rd_data = 1 if signed32(regs[rs1]) < signed32(regs[rs2]) else 0
             instr_name = "SLT"
+
+        elif opcode == 0x33 and funct3 == 0x3 and funct7 == 0x00:
+            expected_rd_data = 1 if regs[rs1] < regs[rs2] else 0
+            instr_name = "SLTU"
+
+        elif opcode == 0x33 and funct3 == 0x5 and funct7 == 0x00:
+            shamt = regs[rs2] & 0x1F
+            expected_rd_data = (regs[rs1] >> shamt) & 0xFFFFFFFF
+            instr_name = "SRL"
+
+        elif opcode == 0x33 and funct3 == 0x5 and funct7 == 0x20:
+            shamt = regs[rs2] & 0x1F
+            expected_rd_data = (signed32(regs[rs1]) >> shamt) & 0xFFFFFFFF
+            instr_name = "SRA"
 
         elif opcode == 0x13 and funct3 == 0x5 and shift_type == 0x20:
             expected_rd_data = (signed32(regs[rs1]) >> shamt) & 0xFFFFFFFF
@@ -195,11 +235,114 @@ with open("retire_trace.txt", "r") as trace_file:
             expected_next_pc &= ~1
             instr_name = "JALR"
 
+        elif opcode == 0x37:
+            imm20 = (instr >> 12) & 0xFFFFF
+            expected_rd_data = (imm20 << 12) & 0xFFFFFFFF
+            instr_name = "LUI"
+
+        elif opcode == 0x17:
+            imm20 = (instr >> 12) & 0xFFFFF
+            expected_rd_data = (record.pc + (imm20 << 12)) & 0xFFFFFFFF
+            instr_name = "AUIPC"
+
+        elif opcode == 0x13 and funct3 == 0x7:
+            expected_rd_data = (regs[rs1] & imm12) & 0xFFFFFFFF
+            instr_name = "ANDI"
+
+        elif opcode == 0x13 and funct3 == 0x6:
+            expected_rd_data = (regs[rs1] | imm12) & 0xFFFFFFFF
+            instr_name = "ORI"
+
+        elif opcode == 0x13 and funct3 == 0x4:
+            expected_rd_data = (regs[rs1] ^ imm12) & 0xFFFFFFFF
+            instr_name = "XORI"
+
+        elif opcode == 0x13 and funct3 == 0x2:
+            if signed32(regs[rs1]) < imm12:
+                expected_rd_data = 1
+            else:
+                expected_rd_data = 0
+            instr_name = "SLTI"
+
+        elif opcode == 0x13 and funct3 == 0x3:
+            imm12_unsigned = imm12 & 0xFFFFFFFF
+            expected_rd_data = 1 if regs[rs1] < imm12_unsigned else 0
+            instr_name = "SLTIU"
+
+        elif opcode == 0x13 and funct3 == 0x1 and shift_type == 0x00:
+            expected_rd_data = (regs[rs1] << shamt) & 0xFFFFFFFF
+            instr_name = "SLLI"
+
+        elif opcode == 0x13 and funct3 == 0x5 and shift_type == 0x00:
+            expected_rd_data = (regs[rs1] >> shamt) & 0xFFFFFFFF
+            instr_name = "SRLI"
+
+        elif opcode == 0x23 and funct3 == 0x0:
+            expected_mem_we = True
+            expected_mem_addr = (regs[rs1] + store_imm) & 0xFFFFFFFF
+            lane = expected_mem_addr & 0x3
+            expected_mem_mask = 1 << lane
+            byte = regs[rs2] & 0xFF
+            expected_mem_data = byte << (lane * 8)
+            instr_name = "SB"
+
+        elif opcode == 0x23 and funct3 == 0x1:
+            expected_mem_we = True
+            expected_mem_addr = (regs[rs1] + store_imm) & 0xFFFFFFFF
+            lane = expected_mem_addr & 0x3
+            expected_mem_mask = 0x3 << lane
+            halfword = regs[rs2] & 0xFFFF
+            expected_mem_data = halfword << (lane * 8)
+            instr_name = "SH"
+
+        elif opcode == 0x03 and funct3 == 0x0:
+            expected_addr = (regs[rs1] + imm12) & 0xFFFFFFFF
+            byte = memory.get(expected_addr, 0)
+            if byte & 0x80:
+                expected_rd_data = (byte - 0x100) & 0xFFFFFFFF
+            else:
+                expected_rd_data = byte
+            instr_name = "LB"
+
+        elif opcode == 0x03 and funct3 == 0x1:
+            expected_addr = (regs[rs1] + imm12) & 0xFFFFFFFF
+
+            if expected_addr & 0x1:
+                expected_rd_we = False
+                instr_name = "LH_MISALIGNED"
+
+            else: 
+                low_byte = memory.get(expected_addr, 0)
+                high_byte = memory.get(expected_addr + 1, 0)
+
+                halfword = low_byte | (high_byte << 8)
+
+                if halfword & 0x8000:
+                    expected_rd_data = (halfword - 0x10000) & 0xFFFFFFFF
+                else:
+                    expected_rd_data = halfword
+                instr_name = "LH"
+
+        elif opcode == 0x03 and funct3 == 0x4:
+            expected_addr = (regs[rs1] + imm12) & 0xFFFFFFFF
+            expected_rd_data = memory.get(expected_addr, 0)
+            instr_name = "LBU"
+
+        elif opcode == 0x03 and funct3 == 0x5:
+            expected_addr = (regs[rs1] + imm12) & 0xFFFFFFFF
+
+            low_byte = memory.get(expected_addr, 0)
+            high_byte = memory.get(expected_addr + 1, 0)
+
+            expected_rd_data = low_byte | (high_byte << 8)
+
+            instr_name = "LHU"
+        
         else:
             print("Unsupported instruction:", hex(instr))
             break
 
-        if instr_name == "SW":
+        if instr_name == "SW" or instr_name == "SB" or instr_name == "SH":
             if expected_mem_we != record.mem_we:
                 print("MEM_WE MISMATCH")
                 print("expected:", expected_mem_we)
@@ -224,10 +367,12 @@ with open("retire_trace.txt", "r") as trace_file:
                 print("actual:  ", hex(record.mem_data))
                 break
 
-            memory[expected_mem_addr] = expected_mem_data & 0xFF
-            memory[expected_mem_addr + 1] = (expected_mem_data >> 8) & 0xFF
-            memory[expected_mem_addr + 2] = (expected_mem_data >> 16) & 0xFF
-            memory[expected_mem_addr + 3] = (expected_mem_data >> 24) & 0xFF
+            base_addr = expected_mem_addr & ~0x3
+
+            for lane in range(4):
+                if expected_mem_mask & (1 << lane):
+                    byte_value = (expected_mem_data >> (lane * 8)) & 0xFF
+                    memory[base_addr + lane] = byte_value
 
         elif opcode == 0x63:
             if expected_next_pc != record.next_pc:
@@ -239,7 +384,21 @@ with open("retire_trace.txt", "r") as trace_file:
                 break
 
         elif instr_name == "JAL" or instr_name == "JALR":
-            if expected_rd_data != record.rd_data:
+            expected_rd_we = (rd != 0)
+
+            if record.rd_we != expected_rd_we:
+                print("RD_WE MISMATCH")
+                print("expected:", expected_rd_we)
+                print("actual:  ", record.rd_we)
+                break
+
+            if expected_rd_we and record.rd != rd:
+                print("RD MISMATCH")
+                print("expected:", rd)
+                print("actual:  ", record.rd)
+                break
+
+            if expected_rd_we and expected_rd_data != record.rd_data:
                 print("RD_DATA MISMATCH")
                 print("expected:", hex(expected_rd_data))
                 print("actual:  ", hex(record.rd_data))
@@ -254,9 +413,31 @@ with open("retire_trace.txt", "r") as trace_file:
             if rd != 0:
                 regs[rd] = expected_rd_data
 
+        elif instr_name == "LH_MISALIGNED":
+            if record.rd_we:
+                print("RD_WE MISMATCH")
+                print("instruction:", instr_name)
+                print("expected: False")
+                print("actual:  ", record.rd_we)
+                break
+
         else:
-            if expected_rd_data != record.rd_data:
-                print("MISMATCH")
+            expected_rd_we = (rd != 0)
+
+            if record.rd_we != expected_rd_we:
+                print("RD_WE MISMATCH")
+                print("expected:", expected_rd_we)
+                print("actual:  ", record.rd_we)
+                break
+
+            if expected_rd_we and record.rd != rd:
+                print("RD MISMATCH")
+                print("expected:", rd)
+                print("actual:  ", record.rd)
+                break
+
+            if expected_rd_we and expected_rd_data != record.rd_data:
+                print("RD_DATA MISMATCH")
                 print("expected:", hex(expected_rd_data))
                 print("actual:  ", hex(record.rd_data))
                 break
