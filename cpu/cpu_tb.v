@@ -163,6 +163,7 @@ module cpu_tb;
             $fatal(1);
         end
 
+
         $finish;
     end
 

@@ -100,6 +100,27 @@ iverilog -o cpu_test \
 vvp cpu_test > cpu_result.txt
 cat cpu_result.txt
 
+# test 9: reset behavior
+
+iverilog -o cpu_reset_test \
+    cpu/cpu_reset_tb.v \
+    cpu/cpu.v \
+    fetch/fetch.v \
+    pc/pc.v \
+    imem/imem.v \
+    decode/decode.v \
+    decode/imm_gen.v \
+    regfile/regfile.v \
+    alu/alu.v \
+    control/control.v \
+    dmem/dmem.v \
+    dmem/store_formatter.v \
+    dmem/load_formatter.v \
+    branch/branch_unit.v
+
+vvp cpu_reset_test > cpu_reset_result.txt
+cat cpu_reset_result.txt
+
 # verdict
 
 if grep -q "FAIL" \
@@ -110,7 +131,8 @@ if grep -q "FAIL" \
     load_formatter_result.txt \
     branch_unit_result.txt \
     cpu_branch_result.txt \
-    cpu_result.txt; then
+    cpu_result.txt \
+    cpu_reset_result.txt; then
 
     echo "REGRESSION FAILED"
     exit 1

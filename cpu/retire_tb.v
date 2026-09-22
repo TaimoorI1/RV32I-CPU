@@ -52,7 +52,7 @@ module retire_tb;
         @(posedge clk);
         #1 reset = 0;
 
-        repeat (49) @(posedge clk);
+        repeat (55) @(posedge clk);
 
         $finish;
 

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import sys
 
 
 @dataclass
@@ -26,16 +27,27 @@ def parse_retire_line(line):
         name, value = field.split("=")
         fields[name] = value
 
+    rd_we_value = int(fields["rd_we"])
+    mem_we_value = int(fields["mem_we"])
+
+    if rd_we_value not in (0,1):
+        print("ERROR: RD_WE IS NOT 0 OR 1")
+        sys.exit(1)
+    if mem_we_value not in (0,1):
+        print("ERROR: MEM_WE IS NOT 0 OR 1")
+        sys.exit(1)
+
+
     record = RetireRecord(
         pc=int(fields["pc"], 16),
         instr=int(fields["instr"], 16),
         next_pc=int(fields["next_pc"], 16),
 
-        rd_we=bool(int(fields["rd_we"])),
+        rd_we=bool(rd_we_value),
         rd=int(fields["rd"], 16),
         rd_data=int(fields["rd_data"], 16),
 
-        mem_we=bool(int(fields["mem_we"])),
+        mem_we=bool(mem_we_value),
         mem_mask=int(fields["mem_mask"], 16),
         mem_addr=int(fields["mem_addr"], 16),
         mem_data=int(fields["mem_data"], 16),
@@ -52,11 +64,27 @@ memory = {
     27: 0x80,
 }
 
+program = {}
+program_addr = 0
+
+with open("programs/asm/cpu_tb.hex", "r") as program_file:
+    for token in program_file.read().split():
+
+        if token.startswith("@"):
+            program_addr = int(token[1:], 16)
+
+        else:
+            instruction = int(token, 16)
+            program[program_addr] = instruction
+            program_addr += 4
+
 def signed32(value):
             if value & 0x80000000:
                 return value - 0x100000000
             return value
 
+
+completed = False
 
 with open("retire_trace.txt", "r") as trace_file:
     for line in trace_file:
@@ -64,6 +92,24 @@ with open("retire_trace.txt", "r") as trace_file:
             continue
 
         record = parse_retire_line(line)
+
+        while program.get(pc) == 0x000000FF:
+            pc = (pc+4) & 0xFFFFFFFF
+
+        if record.pc != pc:
+            print("PC MISMATCH")
+            print("expected:", hex(pc))
+            print("actual:  ", hex(record.pc))
+            sys.exit(1)
+
+        expected_instr = program.get(pc)
+
+        if expected_instr != record.instr:
+            print("INSTRUCTION MISMATCH")
+            print("pc:", hex(pc))
+            print("expected:", hex(expected_instr))
+            print("actual:", hex(record.instr))
+            sys.exit(1)
 
         instr = record.instr
         opcode = instr & 0x7F
@@ -118,6 +164,11 @@ with open("retire_trace.txt", "r") as trace_file:
 
         if imm12 & 0x800:
             imm12 -= 0x1000
+
+        expected_next_pc = (pc + 4) & 0xFFFFFFFF
+        expected_mem_we = False
+        expected_rd_we = False
+
 
         if opcode == 0x13 and funct3 == 0x0:
             expected_rd_data = (regs[rs1] + imm12) & 0xFFFFFFFF
@@ -217,20 +268,20 @@ with open("retire_trace.txt", "r") as trace_file:
 
             else:
                 print("Unsupported branch:", hex(instr))
-                break
+                sys.exit(1)
 
             if branch_taken:
-                expected_next_pc = (record.pc + branch_imm) & 0xFFFFFFFF
+                expected_next_pc = (pc + branch_imm) & 0xFFFFFFFF
             else:
-                expected_next_pc = (record.pc + 4) & 0xFFFFFFFF
+                expected_next_pc = (pc + 4) & 0xFFFFFFFF
 
         elif opcode == 0x6F:
-            expected_rd_data = (record.pc + 4) & 0xFFFFFFFF
-            expected_next_pc = (record.pc + jal_imm) & 0xFFFFFFFF
+            expected_rd_data = (pc + 4) & 0xFFFFFFFF
+            expected_next_pc = (pc + jal_imm) & 0xFFFFFFFF
             instr_name = "JAL"
 
         elif opcode == 0x67 and funct3 == 0x0:
-            expected_rd_data = (record.pc + 4) & 0xFFFFFFFF
+            expected_rd_data = (pc + 4) & 0xFFFFFFFF
             expected_next_pc = (regs[rs1] + imm12) & 0xFFFFFFFF
             expected_next_pc &= ~1
             instr_name = "JALR"
@@ -242,7 +293,7 @@ with open("retire_trace.txt", "r") as trace_file:
 
         elif opcode == 0x17:
             imm20 = (instr >> 12) & 0xFFFFF
-            expected_rd_data = (record.pc + (imm20 << 12)) & 0xFFFFFFFF
+            expected_rd_data = (pc + (imm20 << 12)) & 0xFFFFFFFF
             instr_name = "AUIPC"
 
         elif opcode == 0x13 and funct3 == 0x7:
@@ -337,35 +388,118 @@ with open("retire_trace.txt", "r") as trace_file:
             expected_rd_data = low_byte | (high_byte << 8)
 
             instr_name = "LHU"
-        
+    
         else:
             print("Unsupported instruction:", hex(instr))
-            break
+            sys.exit(1)
+
+
+        rd_writing_instructions = {
+            "ADD",
+            "ADDI",
+            "SUB",
+            "AND",
+            "ANDI",
+            "OR",
+            "ORI",
+            "XOR",
+            "XORI",
+            "SLT",
+            "SLTI",
+            "SLTU",
+            "SLTIU",
+            "SLL",
+            "SLLI",
+            "SRL",
+            "SRLI",
+            "SRA",
+            "SRAI",
+            "LB",
+            "LBU",
+            "LH",
+            "LHU",
+            "LW",
+            "LUI",
+            "AUIPC",
+            "JAL",
+            "JALR"
+        }
+
+        if instr_name in rd_writing_instructions:
+            expected_rd_we = (rd != 0)
+
+
+        if expected_next_pc != record.next_pc:
+            print("NEXT_PC MISMATCH")
+            print("instruction:", instr_name)
+            print("pc:      ", hex(record.pc))
+            print("expected:", hex(expected_next_pc))
+            print("actual:  ", hex(record.next_pc))
+            sys.exit(1)
+
+        if expected_mem_we != record.mem_we:
+            print("MEM_WE MISMATCH")
+            print("expected:", hex(expected_mem_we))
+            print("actual:  ", hex(record.mem_we))
+            sys.exit(1)
+
+        if expected_rd_we != record.rd_we:
+            print("RD_WE MISMATCH")
+            print("instruction", instr_name)
+            print("expected:", hex(expected_rd_we))
+            print("actual:  ", hex(record.rd_we))
+            sys.exit(1)
+
+        if (expected_rd_we):
+            if rd != record.rd:
+                print("RD MISMATCH")
+                print("instruction:", instr_name)
+                print("expected: ", rd)
+                print("actual:", record.rd)
+                sys.exit(1)
+
+            if expected_rd_data != record.rd_data:
+                print("RD_DATA MISMATCH")
+                print("instruction:", instr_name)
+                print("expected: ", expected_rd_data)
+                print("actual:", record.rd_data)
+                sys.exit(1)
+
+        if record.pc == 0xB4 and record.instr == 0x00000063 and record.next_pc == 0xB4:
+            completed = True
 
         if instr_name == "SW" or instr_name == "SB" or instr_name == "SH":
             if expected_mem_we != record.mem_we:
                 print("MEM_WE MISMATCH")
                 print("expected:", expected_mem_we)
                 print("actual:  ", record.mem_we)
-                break
+                sys.exit(1)
 
             if expected_mem_mask != record.mem_mask:
                 print("MEM_MASK MISMATCH")
                 print("expected:", hex(expected_mem_mask))
                 print("actual:  ", hex(record.mem_mask))
-                break
+                sys.exit(1)
 
             if expected_mem_addr != record.mem_addr:
                 print("MEM_ADDR MISMATCH")
                 print("expected:", hex(expected_mem_addr))
                 print("actual:  ", hex(record.mem_addr))
-                break
+                sys.exit(1)
 
             if expected_mem_data != record.mem_data:
                 print("MEM_DATA MISMATCH")
                 print("expected:", hex(expected_mem_data))
                 print("actual:  ", hex(record.mem_data))
-                break
+                sys.exit(1)
+            
+            if record.rd_we:
+                print("RD_WE MISMATCH")
+                print("instruction:", instr_name)
+                print("pc:", hex(record.pc) )
+                print("expected: False")
+                print("actual:", record.rd_we)
+                sys.exit(1)
 
             base_addr = expected_mem_addr & ~0x3
 
@@ -375,13 +509,20 @@ with open("retire_trace.txt", "r") as trace_file:
                     memory[base_addr + lane] = byte_value
 
         elif opcode == 0x63:
-            if expected_next_pc != record.next_pc:
-                print("NEXT_PC MISMATCH")
+            if record.rd_we:
+                print("RD_WE MISMATCH")
                 print("instruction:", instr_name)
-                print("pc:      ", hex(record.pc))
-                print("expected:", hex(expected_next_pc))
-                print("actual:  ", hex(record.next_pc))
-                break
+                print("pc:", hex(record.pc) )
+                print("expected: False")
+                print("actual:", record.rd_we)
+                sys.exit(1)
+            if record.mem_we:
+                print("MEM_WE MISMATCH")
+                print("instruction:", instr_name)
+                print("pc:", hex(record.pc) )
+                print("expected: False")
+                print("actual:", record.mem_we)
+                sys.exit(1)
 
         elif instr_name == "JAL" or instr_name == "JALR":
             expected_rd_we = (rd != 0)
@@ -390,25 +531,25 @@ with open("retire_trace.txt", "r") as trace_file:
                 print("RD_WE MISMATCH")
                 print("expected:", expected_rd_we)
                 print("actual:  ", record.rd_we)
-                break
+                sys.exit(1)
 
             if expected_rd_we and record.rd != rd:
                 print("RD MISMATCH")
                 print("expected:", rd)
                 print("actual:  ", record.rd)
-                break
+                sys.exit(1)
 
             if expected_rd_we and expected_rd_data != record.rd_data:
                 print("RD_DATA MISMATCH")
                 print("expected:", hex(expected_rd_data))
                 print("actual:  ", hex(record.rd_data))
-                break
+                sys.exit(1)
 
             if expected_next_pc != record.next_pc:
                 print("NEXT_PC MISMATCH")
                 print("expected:", hex(expected_next_pc))
                 print("actual:  ", hex(record.next_pc))
-                break
+                sys.exit(1)
 
             if rd != 0:
                 regs[rd] = expected_rd_data
@@ -419,7 +560,7 @@ with open("retire_trace.txt", "r") as trace_file:
                 print("instruction:", instr_name)
                 print("expected: False")
                 print("actual:  ", record.rd_we)
-                break
+                sys.exit(1)
 
         else:
             expected_rd_we = (rd != 0)
@@ -428,26 +569,30 @@ with open("retire_trace.txt", "r") as trace_file:
                 print("RD_WE MISMATCH")
                 print("expected:", expected_rd_we)
                 print("actual:  ", record.rd_we)
-                break
+                sys.exit(1)
 
             if expected_rd_we and record.rd != rd:
                 print("RD MISMATCH")
                 print("expected:", rd)
                 print("actual:  ", record.rd)
-                break
+                sys.exit(1)
 
             if expected_rd_we and expected_rd_data != record.rd_data:
                 print("RD_DATA MISMATCH")
                 print("expected:", hex(expected_rd_data))
                 print("actual:  ", hex(record.rd_data))
-                break
+                sys.exit(1)
 
             if rd != 0:
                 regs[rd] = expected_rd_data
+
         
+        pc = expected_next_pc
         print(instr_name, "passed:", hex(instr))
 
-
+if not completed:
+    print("INCOMPLETE TRACE: terminal halt was never reached")
+    sys.exit(1)
 
 
 
