@@ -122,6 +122,28 @@ iverilog -o cpu_reset_test \
 vvp cpu_reset_test > cpu_reset_result.txt || failed=1
 cat cpu_reset_result.txt
 
+# test 10: trace checker
+iverilog -o retire_test \
+    cpu/retire_tb.v \
+    cpu/cpu.v \
+    fetch/fetch.v \
+    pc/pc.v \
+    imem/imem.v \
+    decode/decode.v \
+    decode/imm_gen.v \
+    regfile/regfile.v \
+    alu/alu.v \
+    control/control.v \
+    dmem/dmem.v \
+    dmem/store_formatter.v \
+    dmem/load_formatter.v \
+    branch/branch_unit.v
+
+vvp retire_test > retire_trace.txt || failed=1
+cat retire_trace.txt
+
+python3 verification/diff_check.py programs/asm/cpu_tb.hex retire_trace.txt || failed=1
+
 if [ "$failed" -ne 0 ]; then
     echo "REGRESSION FAILED"
     exit 1
