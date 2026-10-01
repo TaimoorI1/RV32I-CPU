@@ -67,7 +67,11 @@ memory = {
 program = {}
 program_addr = 0
 
-with open("programs/asm/cpu_tb.hex", "r") as program_file:
+if len(sys.argv) != 3:
+    print("usage: diff_check.py <program.hex> <trace.txt>")
+    sys.exit(1)
+
+with open(sys.argv[1]) as program_file:
     for token in program_file.read().split():
 
         if token.startswith("@"):
@@ -86,7 +90,7 @@ def signed32(value):
 
 completed = False
 
-with open("retire_trace.txt", "r") as trace_file:
+with open(sys.argv[2]) as trace_file:
     for line in trace_file:
         if not line.startswith("RETIRE "):
             continue
@@ -465,7 +469,7 @@ with open("retire_trace.txt", "r") as trace_file:
                 print("actual:", record.rd_data)
                 sys.exit(1)
 
-        if record.pc == 0xB4 and record.instr == 0x00000063 and record.next_pc == 0xB4:
+        if record.next_pc == record.pc:
             completed = True
 
         if instr_name == "SW" or instr_name == "SB" or instr_name == "SH":
@@ -593,6 +597,7 @@ with open("retire_trace.txt", "r") as trace_file:
 if not completed:
     print("INCOMPLETE TRACE: terminal halt was never reached")
     sys.exit(1)
+
 
 
 

@@ -521,6 +521,16 @@ initial begin
     end
 
     $display("%0d/%0d passed", tests - errors, tests);
+
+    if (errors == 0) begin
+    $display("ALL %0d TESTS PASSED", tests);
+    end
+    else begin
+        $display("%0d/%0d TESTS FAILED", errors, tests);
+        $fatal(1);
+    end
+
+
     $finish;
 end
 

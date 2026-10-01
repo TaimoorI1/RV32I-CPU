@@ -94,14 +94,20 @@ module cpu_tb;
 
     // misaligned LH: 
     // instr 44, address 172 = 32'h00511603 lh x12, 5(x2)
-
+    
     // instr 45, address 176 = 32'h000000FF; illegal instruction
-    // instr 46, address 180 = 32'h00000063; beq  x0,  x0, 0     // spin
+    // instr 46, address 180 = 32'h00008113; addi x2, x1, 0   // exposes any illegal-instruction write to x1
+    // instr 47, address 184 = 32'h00000063; beq  x0,  x0, 0  // spin
 
     initial begin
         #100000;
         $display("TIMEOUT: simulation did not finish");
         $fatal(1);
+    end
+
+    initial begin
+        $dumpfile("cpu_wave.vcd");
+        $dumpvars(0, cpu_tb);
     end
 
     initial begin
@@ -114,11 +120,11 @@ module cpu_tb;
         @(posedge clk);
         #1 reset = 0;
 
-        repeat (49) @(posedge clk);
+        repeat (50) @(posedge clk);
 
         check(dut.regfile_inst.registers[0], 32'd0, "x0 must be 0");
         check(dut.regfile_inst.registers[1], 32'd10, "ADDI x1, x0, 10");
-        check(dut.regfile_inst.registers[2], 32'd20, "ADDI x2, x0, 20");
+        check(dut.regfile_inst.registers[2], 32'd10, "ADDI x2, x1, 0");
         check(dut.regfile_inst.registers[3], 32'd30, "ADDI x3, x0, 30");
         check(dut.regfile_inst.registers[4], 32'd30, "XOR x4, x1, x2");
         check(dut.regfile_inst.registers[5], 32'd1, "SLT x5, x1, x2");
@@ -150,7 +156,7 @@ module cpu_tb;
         check(dut.regfile_inst.registers[11], 32'h000080F2, "LHU x11, 6(x2)");
         check(dut.regfile_inst.registers[12], 32'h00000063, "LH x12, 5(x2)"); // x12 == 99 because misaligned lh must not modify destination
 
-        check(dut.fetch_inst.pc_inst.pc, 32'd180, "PC parked at relocated spin loop");
+        check(dut.fetch_inst.pc_inst.pc, 32'd184, "PC parked at relocated spin loop");
         check(illegal_count, 32'd1, "illegal counter expected 1");
 
         $display("PC = %0d", dut.fetch_inst.pc_inst.pc);
