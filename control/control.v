@@ -263,7 +263,7 @@ always @(*) begin
                 illegal = 1'b1;
         end
         
-        default : illegal = 1'b1;
+        default : illegal = 1'b1; 
 
    endcase
 

@@ -58,6 +58,7 @@ jal_target:
     .word 0x000000FF
 
     addi x2, x1, 0
+    fence
 
 halt:
     beq x0, x0, halt

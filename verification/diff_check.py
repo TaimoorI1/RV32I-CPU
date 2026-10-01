@@ -392,6 +392,9 @@ with open(sys.argv[2]) as trace_file:
             expected_rd_data = low_byte | (high_byte << 8)
 
             instr_name = "LHU"
+
+        elif opcode == 0x0F and funct3 == 0:
+            instr_name = "FENCE"
     
         else:
             print("Unsupported instruction:", hex(instr))
@@ -566,6 +569,21 @@ with open(sys.argv[2]) as trace_file:
                 print("actual:  ", record.rd_we)
                 sys.exit(1)
 
+        elif instr_name == "FENCE":
+            if record.rd_we:
+                print("RD_WE MISMATCH")
+                print("instruction:", instr_name)
+                print("expected: False")
+                print("actual:  ", record.rd_we)
+                sys.exit(1)
+
+            if record.mem_we:
+                print("MEM_WE MISMATCH")
+                print("instruction:", instr_name)
+                print("expected: False")
+                print("actual:  ", record.mem_we)
+                sys.exit(1)
+                
         else:
             expected_rd_we = (rd != 0)
 

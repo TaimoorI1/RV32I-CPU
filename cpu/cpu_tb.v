@@ -23,7 +23,7 @@ module cpu_tb;
             illegal_count = illegal_count + 1;
     end
 
-    task check(input [31:0] actual, input [31:0] expected, input [127:0] name);
+    task check(input [31:0] actual, input [31:0] expected, input [255:0] name);
     begin
         #1;
         tests = tests + 1;
@@ -94,7 +94,7 @@ module cpu_tb;
 
     // misaligned LH: 
     // instr 44, address 172 = 32'h00511603 lh x12, 5(x2)
-    
+
     // instr 45, address 176 = 32'h000000FF; illegal instruction
     // instr 46, address 180 = 32'h00008113; addi x2, x1, 0   // exposes any illegal-instruction write to x1
     // instr 47, address 184 = 32'h00000063; beq  x0,  x0, 0  // spin
@@ -156,7 +156,7 @@ module cpu_tb;
         check(dut.regfile_inst.registers[11], 32'h000080F2, "LHU x11, 6(x2)");
         check(dut.regfile_inst.registers[12], 32'h00000063, "LH x12, 5(x2)"); // x12 == 99 because misaligned lh must not modify destination
 
-        check(dut.fetch_inst.pc_inst.pc, 32'd184, "PC parked at relocated spin loop");
+        check(dut.fetch_inst.pc_inst.pc, 32'd188, "PC parked at relocated spin loop");
         check(illegal_count, 32'd1, "illegal counter expected 1");
 
         $display("PC = %0d", dut.fetch_inst.pc_inst.pc);
