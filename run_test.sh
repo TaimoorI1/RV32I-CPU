@@ -144,6 +144,26 @@ cat retire_trace.txt
 
 python3 verification/diff_check.py programs/asm/cpu_tb.hex retire_trace.txt || failed=1
 
+# test 11: negative checker tests
+
+NEG=verification/negative
+
+for f in $NEG/good.txt $NEG/ok_*.txt; do
+    if ! python3 verification/diff_check.py $NEG/program.hex "$f" > /dev/null; then
+        echo "CLEAN TRACE REJECTED: $f"
+        failed=1
+    fi
+done
+
+for f in $NEG/bad_*.txt; do
+    if python3 verification/diff_check.py $NEG/program.hex "$f" > /dev/null; then
+        echo "NEGATIVE TEST NOT CAUGHT: $f"
+        failed=1
+    fi
+done
+
+echo "negative tests done"
+
 if [ "$failed" -ne 0 ]; then
     echo "REGRESSION FAILED"
     exit 1
