@@ -59,11 +59,11 @@ cat branch_unit_result.txt
 
 # test 7: CPU branch integration
 
-iverilog -o cpu_branch_test \
+iverilog -g2012 -o cpu_branch_test \
     cpu/cpu_branch_tb.v \
     cpu/cpu.v \
     fetch/fetch.v \
-    pc/pc.v \
+    pc/pc.sv \
     imem/imem.v \
     decode/decode.v \
     decode/imm_gen.v \
@@ -82,11 +82,11 @@ make hex
 
 # test 8: full CPU
 
-iverilog -o cpu_test \
+iverilog -g2012 -o cpu_test \
     cpu/cpu_tb.v \
     cpu/cpu.v \
     fetch/fetch.v \
-    pc/pc.v \
+    pc/pc.sv \
     imem/imem.v \
     decode/decode.v \
     decode/imm_gen.v \
@@ -103,11 +103,11 @@ cat cpu_result.txt
 
 # test 9: reset behavior
 
-iverilog -o cpu_reset_test \
+iverilog -g2012 -o cpu_reset_test \
     cpu/cpu_reset_tb.v \
     cpu/cpu.v \
     fetch/fetch.v \
-    pc/pc.v \
+    pc/pc.sv \
     imem/imem.v \
     decode/decode.v \
     decode/imm_gen.v \
@@ -123,11 +123,11 @@ vvp cpu_reset_test > cpu_reset_result.txt || failed=1
 cat cpu_reset_result.txt
 
 # test 10: trace checker
-iverilog -o retire_test \
+iverilog -g2012 -o retire_test \
     cpu/retire_tb.v \
     cpu/cpu.v \
     fetch/fetch.v \
-    pc/pc.v \
+    pc/pc.sv \
     imem/imem.v \
     decode/decode.v \
     decode/imm_gen.v \
