@@ -100,7 +100,7 @@ module practice_pipe_reg_tb;
         if (q !== d)
             $fatal(1, "FAIL: priority test setup");
 
-        // Now assert both simultaneously.
+        // Assert both simultaneously.
         flush = 1;
         stall = 1;
 
