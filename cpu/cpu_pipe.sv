@@ -4,6 +4,28 @@ typedef struct packed {
     logic        valid;
 } ifid_t;
 
+typedef struct packed {
+    logic [31:0] pc;
+    logic [31:0] instr;
+    logic        valid;
+    logic [4:0]  rs1;
+    logic [4:0]  rs2;
+    logic [31:0] rd1;
+    logic [31:0] rd2;
+    logic [4:0]  rd;
+    logic [2:0]  funct3;
+    logic [31:0] imm;
+    logic        reg_write;
+    logic        alu_src;
+    logic [3:0]  alu_control;
+    logic [2:0]  wb_select;
+    logic        store_en;
+    logic        branch;
+    logic        jump;
+    logic        jump_reg;
+    logic        illegal;
+} idex_t;
+
 module cpu_pipe (
     input clk,
     input reset,
@@ -32,6 +54,8 @@ wire [2:0] funct3;
 wire [6:0] funct7;
 wire [31:0] imm;
 wire [31:0] rd1, rd2;
+wire [31:0] id_rd1;
+wire [31:0] id_rd2;
 wire [31:0] alu_result;
 wire [31:0] if_pc;
 wire [31:0] next_pc;
@@ -58,20 +82,21 @@ wire load_misaligned;
 wire branch_taken;
 
 ifid_t ifid;
+idex_t idex;
 
 wire instr_valid;
 assign instr_valid = !reset;
 
-assign pc_relative_target = ifid.pc + imm; 
+assign pc_relative_target = idex.pc + idex.imm; 
 assign jalr_target = {alu_result[31:1], 1'b0};
 
-assign redirect_valid = (branch & branch_taken) | jump;
-assign redirect_target = jump_reg ? jalr_target : pc_relative_target;
+assign redirect_valid = (idex.branch & branch_taken) | idex.jump;
+assign redirect_target = idex.jump_reg ? jalr_target : pc_relative_target;
 
-assign reg_write_final = (reg_write && !(wb_select == 3'b001 && load_misaligned) && instr_valid);
+assign reg_write_final = (idex.reg_write && !(idex.wb_select == 3'b001 && load_misaligned) && idex.valid);
 
 wire [31:0] pc_plus_4;
-assign pc_plus_4 = ifid.pc + 4;
+assign pc_plus_4 = idex.pc + 4;
 
 assign next_pc = redirect_valid ? redirect_target : pc_plus_4;
 
@@ -120,11 +145,11 @@ decode decode_inst (
 wire [31:0] wb_data;
 
 assign wb_data = 
-    (wb_select == 2'b00) ? alu_result : 
-    (wb_select == 2'b01) ? load_data : 
-    (wb_select == 2'b10) ? pc_plus_4 : 
-    (wb_select == 3'b011) ? imm :
-    (wb_select == 3'b100) ? pc_relative_target : 
+    (idex.wb_select == 2'b00) ? alu_result : 
+    (idex.wb_select == 2'b01) ? load_data : 
+    (idex.wb_select == 2'b10) ? pc_plus_4 : 
+    (idex.wb_select == 3'b011) ? idex.imm :
+    (idex.wb_select == 3'b100) ? pc_relative_target : 
                            32'b0;
 
 
@@ -133,21 +158,24 @@ regfile regfile_inst (
     .clk(clk),
     .ra1(rs1),
     .ra2(rs2),
-    .wa(rd),
+    .wa(idex.rd),
     .wd(wb_data),
     .we(reg_write_final),
     .rd1(rd1),
     .rd2(rd2)
 );
 
+assign id_rd1 = (reg_write_final && idex.rd == rs1 && idex.rd != 0) ? wb_data : rd1;
+assign id_rd2 = (reg_write_final && idex.rd == rs2 && idex.rd != 0) ? wb_data : rd2;
+
 
 // ALU computes, result written back to rd at clock edge
-wire [31:0] alu_b = alu_src ? imm : rd2;
+wire [31:0] alu_b = idex.alu_src ? idex.imm : idex.rd2;
 
 alu alu_inst (
-    .a(rd1),
+    .a(idex.rd1),
     .b(alu_b),
-    .alu_op(alu_control),
+    .alu_op(idex.alu_control),
     .result(alu_result),
     .zero(zero)
 );
@@ -172,6 +200,35 @@ control control_inst (
     .illegal(illegal)
 );
 
+    always_ff @(posedge clk) begin
+        if (reset)
+            idex <= '0;
+        else if (flush)
+            idex <= '0;
+        else begin
+            idex.pc <= ifid.pc;
+            idex.instr <= ifid.instr;
+            idex.valid <= ifid.valid;
+            idex.rs1 <= rs1;
+            idex.rs2 <= rs2;
+            idex.rd1 <= id_rd1;
+            idex.rd2 <= id_rd2;
+            idex.rd <= rd;
+            idex.funct3 <= funct3;
+            idex.imm <= imm;
+            idex.reg_write <= reg_write;
+            idex.alu_src <= alu_src;
+            idex.alu_control <= alu_control;
+            idex.wb_select <= wb_select;
+            idex.store_en <= store_en;
+            idex.branch <= branch;
+            idex.jump <= jump;
+            idex.jump_reg <= jump_reg;
+            idex.illegal <= illegal;
+    end
+    end
+
+
 dmem dmem_inst (
     .clk(clk),
     .addr(alu_result), 
@@ -183,7 +240,7 @@ dmem dmem_inst (
 load_formatter load_formatter_inst (
     .dmem_data(dmem_read_data),
     .addr_offset(alu_result[1:0]),
-    .funct3(funct3),
+    .funct3(idex.funct3),
     .load_data(load_data),
     .misaligned(load_misaligned)
 );
@@ -191,36 +248,36 @@ load_formatter load_formatter_inst (
 
 store_formatter store_formatter_inst (
     .addr(alu_result),
-    .funct3(funct3),
-    .rd2(rd2),
-    .store_en(store_en && instr_valid),
+    .funct3(idex.funct3),
+    .rd2(idex.rd2),
+    .store_en(idex.store_en && idex.valid),
     .store_data(store_data),
     .write_enable(write_enable),
     .misaligned(misaligned)
 );
 
 branch_unit branch_unit_inst (
-    .rd1(rd1),
-    .rd2(rd2),
-    .funct3(funct3),
+    .rd1(idex.rd1),
+    .rd2(idex.rd2),
+    .funct3(idex.funct3),
     .branch_taken(branch_taken)
 );
 
 always @(posedge clk) begin
     if 
-        (reset || illegal) begin
+        (reset || !idex.valid || idex.illegal) begin
         retire_valid <= 1'b0;
         retire_rd_we <= 1'b0;
         retire_mem_we <= 1'b0;
         end
     else begin
         retire_valid <= 1'b1;
-        retire_pc <= ifid.pc;
-        retire_instr <= ifid.instr;
+        retire_pc <= idex.pc;
+        retire_instr <= idex.instr;
         retire_next_pc <= next_pc;
 
-        retire_rd_we <= reg_write_final && (rd != 5'd0);
-        retire_rd_addr <= rd;
+        retire_rd_we <= reg_write_final && (idex.rd != 5'd0);
+        retire_rd_addr <= idex.rd;
         retire_rd_data <= wb_data;
 
         retire_mem_we <= |write_enable;
