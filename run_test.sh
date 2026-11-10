@@ -164,6 +164,30 @@ done
 
 echo "negative tests done"
 
+# test 12: pipelined CPU trace checker
+
+iverilog -g2012 -o retire_pipe_test \
+    cpu/retire_pipe_tb.sv \
+    cpu/cpu_pipe.sv \
+    fetch/fetch.v \
+    pc/pc.sv \
+    imem/imem.v \
+    decode/decode.v \
+    decode/imm_gen.v \
+    regfile/regfile.v \
+    alu/alu.v \
+    control/control.v \
+    dmem/dmem.v \
+    dmem/store_formatter.v \
+    dmem/load_formatter.v \
+    branch/branch_unit.v
+
+vvp retire_pipe_test > retire_pipe_trace.txt || failed=1
+
+python3 verification/diff_check.py programs/asm/cpu_tb.hex retire_pipe_trace.txt || failed=1
+
+echo "pipeline trace check done"
+
 if [ "$failed" -ne 0 ]; then
     echo "REGRESSION FAILED"
     exit 1
