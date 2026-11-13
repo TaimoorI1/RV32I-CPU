@@ -26,6 +26,44 @@ typedef struct packed {
     logic        illegal;
 } idex_t;
 
+typedef struct packed {
+    logic [31:0] pc;
+    logic [31:0] instr;
+    logic        valid;
+    logic        illegal;
+
+    logic [4:0]  rd;
+    logic        reg_write;
+    logic [2:0]  wb_select;
+
+    logic [31:0] alu_result;
+    logic [31:0] store_data;
+    logic [3:0]  write_enable;
+    
+    logic [2:0]  funct3;
+    logic [31:0] imm;
+    logic [31:0] pc_relative_target;
+    logic [31:0] next_pc;
+    logic [31:0] pc_plus_4;
+} exmem_t;
+
+typedef struct packed {
+    logic [31:0] pc;
+    logic [31:0] instr;
+    logic        valid;
+    logic        illegal;
+
+    logic [4:0]  rd;
+    logic        reg_write;
+    logic [31:0] wb_data;
+
+    logic [31:0] next_pc;
+
+    logic [3:0]  write_enable;
+    logic [31:0] mem_addr;
+    logic [31:0] mem_wdata;
+} memwb_t;
+
 module cpu_pipe (
     input clk,
     input reset,
@@ -83,6 +121,8 @@ wire branch_taken;
 
 ifid_t ifid;
 idex_t idex;
+exmem_t exmem;
+memwb_t memwb;
 
 wire instr_valid;
 assign instr_valid = !reset;
@@ -90,10 +130,10 @@ assign instr_valid = !reset;
 assign pc_relative_target = idex.pc + idex.imm; 
 assign jalr_target = {alu_result[31:1], 1'b0};
 
-assign redirect_valid = (idex.branch & branch_taken) | idex.jump;
+assign redirect_valid = idex.valid && !idex.illegal && ((idex.branch & branch_taken) | idex.jump);
 assign redirect_target = idex.jump_reg ? jalr_target : pc_relative_target;
 
-assign reg_write_final = (idex.reg_write && !(idex.wb_select == 3'b001 && load_misaligned) && idex.valid);
+assign reg_write_final = (exmem.reg_write && !(exmem.wb_select == 3'b001 && load_misaligned) && exmem.valid);
 
 wire [31:0] pc_plus_4;
 assign pc_plus_4 = idex.pc + 4;
@@ -145,12 +185,11 @@ decode decode_inst (
 wire [31:0] wb_data;
 
 assign wb_data = 
-    (idex.wb_select == 2'b00) ? alu_result : 
-    (idex.wb_select == 2'b01) ? load_data : 
-    (idex.wb_select == 2'b10) ? pc_plus_4 : 
-    (idex.wb_select == 3'b011) ? idex.imm :
-    (idex.wb_select == 3'b100) ? pc_relative_target : 
-                           32'b0;
+    (exmem.wb_select == 2'b00) ? exmem.alu_result : 
+    (exmem.wb_select == 2'b01) ? load_data : 
+    (exmem.wb_select == 2'b10) ? exmem.pc_plus_4 : 
+    (exmem.wb_select == 3'b011) ? exmem.imm :
+    (exmem.wb_select == 3'b100) ? exmem.pc_relative_target : 32'b0;
 
 
 // regfile reads rs1/rs2, outputs rd1, rd2
@@ -158,15 +197,15 @@ regfile regfile_inst (
     .clk(clk),
     .ra1(rs1),
     .ra2(rs2),
-    .wa(idex.rd),
-    .wd(wb_data),
-    .we(reg_write_final),
+    .wa(memwb.rd),
+    .wd(memwb.wb_data),
+    .we(memwb.reg_write),
     .rd1(rd1),
     .rd2(rd2)
 );
 
-assign id_rd1 = (reg_write_final && idex.rd == rs1 && idex.rd != 0) ? wb_data : rd1;
-assign id_rd2 = (reg_write_final && idex.rd == rs2 && idex.rd != 0) ? wb_data : rd2;
+assign id_rd1 = (reg_write_final && exmem.rd == rs1 && exmem.rd != 0) ? wb_data : rd1;
+assign id_rd2 = (reg_write_final && exmem.rd == rs2 && exmem.rd != 0) ? wb_data : rd2;
 
 
 // ALU computes, result written back to rd at clock edge
@@ -231,16 +270,43 @@ control control_inst (
 
 dmem dmem_inst (
     .clk(clk),
-    .addr(alu_result), 
-    .store_data(store_data),
-    .write_enable(write_enable),
+    .addr(exmem.alu_result), 
+    .store_data(exmem.store_data),
+    .write_enable(exmem.write_enable),
     .read_data(dmem_read_data)
 );
 
+always_ff @(posedge clk) begin
+    if (reset)
+        exmem <= '0;
+    else begin
+        exmem.pc <= idex.pc;
+        exmem.instr <= idex.instr;
+        exmem.valid <= idex.valid;
+        exmem.illegal <= idex.illegal;
+
+        exmem.rd <= idex.rd;
+        exmem.reg_write <= idex.reg_write;
+        exmem.wb_select <= idex.wb_select;
+
+
+        exmem.alu_result <= alu_result;
+        exmem.store_data <= store_data;
+        exmem.write_enable <= write_enable;
+
+        exmem.funct3 <= idex.funct3;
+        exmem.imm <= idex.imm;
+        exmem.pc_relative_target <= pc_relative_target;
+        exmem.next_pc <= next_pc;
+        exmem.pc_plus_4 <= pc_plus_4;
+    end
+end
+
+
 load_formatter load_formatter_inst (
     .dmem_data(dmem_read_data),
-    .addr_offset(alu_result[1:0]),
-    .funct3(idex.funct3),
+    .addr_offset(exmem.alu_result[1:0]),
+    .funct3(exmem.funct3),
     .load_data(load_data),
     .misaligned(load_misaligned)
 );
@@ -250,7 +316,7 @@ store_formatter store_formatter_inst (
     .addr(alu_result),
     .funct3(idex.funct3),
     .rd2(idex.rd2),
-    .store_en(idex.store_en && idex.valid),
+    .store_en(idex.store_en && idex.valid && !idex.illegal),
     .store_data(store_data),
     .write_enable(write_enable),
     .misaligned(misaligned)
@@ -265,28 +331,52 @@ branch_unit branch_unit_inst (
 
 always @(posedge clk) begin
     if 
-        (reset || !idex.valid || idex.illegal) begin
+        (reset || !exmem.valid || exmem.illegal) begin
         retire_valid <= 1'b0;
         retire_rd_we <= 1'b0;
         retire_mem_we <= 1'b0;
         end
     else begin
         retire_valid <= 1'b1;
-        retire_pc <= idex.pc;
-        retire_instr <= idex.instr;
-        retire_next_pc <= next_pc;
+        retire_pc <= exmem.pc;
+        retire_instr <= exmem.instr;
+        retire_next_pc <= exmem.next_pc;
 
-        retire_rd_we <= reg_write_final && (idex.rd != 5'd0);
-        retire_rd_addr <= idex.rd;
+        retire_rd_we <= reg_write_final && (exmem.rd != 5'd0);
+        retire_rd_addr <= exmem.rd;
         retire_rd_data <= wb_data;
 
-        retire_mem_we <= |write_enable;
-        retire_mem_wmask <= write_enable;
-        retire_mem_addr <= alu_result;
-        retire_mem_wdata <= store_data;
+        retire_mem_we <= |exmem.write_enable;
+        retire_mem_wmask <= exmem.write_enable;
+        retire_mem_addr <= exmem.alu_result;
+        retire_mem_wdata <= exmem.store_data;
 
     end
 
 end
+
+always_ff @(posedge clk) begin
+    if (reset)
+        memwb <= '0;
+    else begin
+        memwb.pc <= exmem.pc;
+        memwb.instr <= exmem.instr;
+        memwb.valid <= exmem.valid;
+        memwb.illegal <= exmem.illegal;
+
+        memwb.rd <= exmem.rd;
+        memwb.reg_write <= reg_write_final;
+        memwb.wb_data <= wb_data;
+
+        memwb.next_pc <= exmem.next_pc;
+        memwb.write_enable <= exmem.write_enable;
+
+        memwb.mem_wdata <= exmem.store_data;
+        memwb.mem_addr <= exmem.alu_result;
+    
+    end
+end
+
+
 
 endmodule
