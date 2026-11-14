@@ -3,6 +3,7 @@ module fetch (
     input  reset,
     input  redirect_valid,
     input  [31:0] redirect_target,
+    input  stall,
     output [31:0] pc,        // current address (exposed so we can watch it)
     output [31:0] instr      // instruction fetched this cycle
 );
@@ -26,7 +27,7 @@ module fetch (
     );
 
     assign pc_plus_4 = pc + 4;
-    assign next_pc = redirect_valid ? redirect_target : pc_plus_4;
+    assign next_pc = redirect_valid ? redirect_target : stall ? pc : pc_plus_4;
 
 
 endmodule

@@ -74,6 +74,7 @@ fetch fetch_inst (
     .reset(reset),
     .pc(pc),
     .redirect_target(redirect_target),
+    .stall(1'b0),
     .redirect_valid(redirect_valid),
     .instr(instr)
 );

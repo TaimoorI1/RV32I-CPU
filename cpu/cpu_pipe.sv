@@ -133,7 +133,7 @@ assign jalr_target = {alu_result[31:1], 1'b0};
 assign redirect_valid = idex.valid && !idex.illegal && ((idex.branch & branch_taken) | idex.jump);
 assign redirect_target = idex.jump_reg ? jalr_target : pc_relative_target;
 
-assign reg_write_final = (exmem.reg_write && !(exmem.wb_select == 3'b001 && load_misaligned) && exmem.valid);
+assign reg_write_final = (exmem.reg_write && !(exmem.wb_select == 3'b001 && load_misaligned) && exmem.valid && !exmem.illegal);
 
 wire [31:0] pc_plus_4;
 assign pc_plus_4 = idex.pc + 4;
@@ -144,7 +144,7 @@ logic flush;
 assign flush = redirect_valid;
 
 logic stall;
-assign stall = '0;
+assign stall = idex.valid && idex.reg_write && idex.rd != 0 && (idex.rd == rs1 || idex.rd == rs2);
 
 
 // PC sends byte address to imem, imem outputs the instruction
@@ -153,6 +153,7 @@ fetch fetch_inst (
     .reset(reset),
     .pc(if_pc),
     .redirect_target(redirect_target),
+    .stall(stall),
     .redirect_valid(redirect_valid),
     .instr(if_instr)
 );
@@ -167,8 +168,6 @@ always_ff @(posedge clk) begin
     else
         ifid <= {if_pc, if_instr, instr_valid};
 end
-
-
 
 // instruction goes to decode, which deconstructs rs1, rs2, rd, imm
 decode decode_inst (
@@ -204,8 +203,15 @@ regfile regfile_inst (
     .rd2(rd2)
 );
 
-assign id_rd1 = (reg_write_final && exmem.rd == rs1 && exmem.rd != 0) ? wb_data : rd1;
-assign id_rd2 = (reg_write_final && exmem.rd == rs2 && exmem.rd != 0) ? wb_data : rd2;
+assign id_rd1 =
+    (reg_write_final && exmem.rd == rs1 && exmem.rd != 0) ? wb_data :
+    (memwb.reg_write && memwb.rd == rs1 && memwb.rd != 0) ? memwb.wb_data :
+    rd1;
+
+assign id_rd2 =
+    (reg_write_final && exmem.rd == rs2 && exmem.rd != 0) ? wb_data :
+    (memwb.reg_write && memwb.rd == rs2 && memwb.rd != 0) ? memwb.wb_data :
+    rd2;
 
 
 // ALU computes, result written back to rd at clock edge
@@ -243,6 +249,8 @@ control control_inst (
         if (reset)
             idex <= '0;
         else if (flush)
+            idex <= '0;
+        else if (stall)
             idex <= '0;
         else begin
             idex.pc <= ifid.pc;
